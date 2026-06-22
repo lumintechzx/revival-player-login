@@ -1,108 +1,182 @@
 import os
-import logging
-import datetime
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template_string
+import pymysql
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-
-# Configuração de Logs para o Render
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'revival_master_secret_key_999')
 
-# Configuração do Banco de Dados SQLite Local
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'users.db')
+# Configuração automática do Banco de Dados via Variável de Ambiente (Render) ou Local
+DATABASE_URL = os.environ.get('DATABASE_URL', 'mysql+pymysql://revival_user:123456@localhost:3306/revival_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ==================== MODELO DA DATABASE ====================
-class Player(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    nick = db.Column(db.String(80), default='Recruta')
-    nivel = db.Column(db.Integer, default=1)
-    ouro = db.Column(db.Integer, default=0)
-    diamantes = db.Column(db.Integer, default=0)
-    cargo = db.Column(db.String(30), default='Jogador') # Jogador ou Admin
-    banido = db.Column(db.Boolean, default=False)
+# Tabela de Contas dos Jogadores
+class User(db.Model):
+    __tablename__ = 'accounts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(50), nullable=False)
+    diamonds = db.Column(db.Integer, default=1000)
+    gold = db.Column(db.Integer, default=5000)
 
-# Criar as tabelas e o administrador inicial caso não existam
-with app.app_context():
-    db.create_all()
-    # Verifica se o admin mestre já existe para não duplicar
-    if not Player.query.filter_by(username='admin').first():
-        senha_cripto = generate_password_hash('123456')
-        admin_mestre = Player(
-            username='admin',
-            password=senha_cripto,
-            nick='Cientista Dev',
-            nivel=99,
-            ouro=999999,
-            diamantes=999999,
-            cargo='Admin'
-        )
-        db.session.add(admin_mestre)
-        db.session.commit()
-        logging.info("Database SQLite inicializada e Administrador padrão criado com sucesso!")
-
-# ==================== ROTAS DO SERVIDOR ====================
-
+# Rota que carrega a interface HTML do seu painel
 @app.route('/')
 def index():
-    try:
-        return send_from_directory(BASE_DIR, 'index.html')
-    except Exception as e:
-        logging.error(f"Erro ao carregar index.html: {e}")
-        return "Erro interno ao carregar a interface de login.", 500
+    # Buscando o código do HTML que está na função abaixo
+    return render_template_string(get_html_content())
 
-@app.route('/api/v1/auth/login', methods=['POST'])
-def player_login():
+# Rota de Login para o APK e para o HTML
+@app.route('/api/login', methods=['POST'])
+def login():
     data = request.get_json() or {}
-    username_input = data.get('email', '').strip()
-    password_input = data.get('password', '')
-
-    if not username_input or not password_input:
-        return jsonify({"success": False, "msg": "Preencha todos os campos."}), 400
-
-    try:
-        # Busca o usuário na database SQLite local
-        player = Player.query.filter_by(username=username_input).first()
-
-        if not player:
-            return jsonify({"success": False, "msg": "Conta não encontrada no servidor."}), 404
-
-        # Valida a senha usando hash seguro
-        if not check_password_hash(player.password, password_input):
-            return jsonify({"success": False, "msg": "Senha incorreta."}), 401
-
-        if player.banido:
-            return jsonify({"success": False, "msg": "Esta conta está suspensa permanentemente."}), 403
-
-        # Retorna o resultado com base no cargo da conta
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"status": "fail", "message": "Campos obrigatórios faltando"}), 400
+        
+    user = User.query.filter_by(username=username).first()
+    if user and user.password == password:
         return jsonify({
-            "success": True,
-            "cargo": player.cargo,
-            "profile": {
-                "nick": player.nick,
-                "nivel": player.nivel,
-                "ouro": player.ouro,
-                "diamantes": player.diamantes
+            "status": "success",
+            "message": "Login efetuado com sucesso!",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "diamonds": user.diamonds,
+                "gold": user.gold
             }
         }), 200
+    return jsonify({"status": "fail", "message": "Usuário ou senha incorretos."}), 401
 
-    except Exception as e:
-        logging.error(f"Erro no processamento do login: {e}")
-        return jsonify({"success": False, "msg": "Erro interno no gerenciador de login."}), 500
+# Rota para Criar Conta
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json() or {}
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"status": "fail", "message": "Campos obrigatórios faltando"}), 400
+        
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({"status": "fail", "message": "Usuário já existe."}), 400
+        
+    new_user = User(username=username, password=password)
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({"status": "success", "message": "Conta criada com sucesso!"}), 201
 
-@app.errorhandler(404)
-def page_not_found(e):
-    return send_from_directory(BASE_DIR, 'index.html')
+# Função que armazena seu HTML estilizado para o painel de login
+def get_html_content():
+    return """
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Revival FF - Painel de Acesso</title>
+        <style>
+            body {
+                background-color: #0d1117;
+                color: #c9d1d9;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+            .login-card {
+                background: #161b22;
+                padding: 30px;
+                border-radius: 10px;
+                border: 1px solid #30363d;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+                width: 100%;
+                max-width: 350px;
+                text-align: center;
+            }
+            h2 { color: #58a6ff; margin-bottom: 20px; }
+            input {
+                width: 90%;
+                padding: 10px;
+                margin: 10px 0;
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                color: #fff;
+            }
+            input:focus { border-color: #58a6ff; outline: none; }
+            button {
+                width: 96%;
+                padding: 12px;
+                background: #238636;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-top: 15px;
+            }
+            button:hover { background: #2ea44f; }
+            #response { margin-top: 15px; font-size: 14px; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="login-card">
+            <h2>REVIVAL FF LOGIN</h2>
+            <input type="text" id="user" placeholder="Nome de Usuário">
+            <input type="password" id="pass" placeholder="Sua Senha">
+            <button onclick="enviarLogin()">ENTRAR NO SERVIDOR</button>
+            <div id="response"></div>
+        </div>
+
+        <script>
+            function enviarLogin() {
+                const u = document.getElementById('user').value;
+                const p = document.getElementById('pass').value;
+                const respDiv = document.getElementById('response');
+                
+                respDiv.innerText = "Conectando...";
+                respDiv.style.color = "#8b949e";
+
+                fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === "success") {
+                        respDiv.innerText = `Sucesso! Dimas: ${data.user.diamonds} | Ouro: ${data.user.gold}`;
+                        respDiv.style.color = "#2ea44f";
+                    } else {
+                        respDiv.innerText = data.message;
+                        respDiv.style.color = "#f85149";
+                    }
+                })
+                .catch(err => {
+                    respDiv.innerText = "Erro ao conectar com o Zrok!";
+                    respDiv.style.color = "#f85149";
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
+    try:
+        with app.app_context():
+            db.create_all()
+    except Exception as e:
+        print(f"Aviso ao inicializar tabelas: {e}")
+        
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-                            
+    
