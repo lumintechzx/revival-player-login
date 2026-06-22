@@ -11,13 +11,11 @@ from firebase_admin import credentials, db
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 app = Flask(__name__)
 
-# É CRÍTICO que esta chave seja forte, única e mantida em segredo. Use variáveis de ambiente em produção.
+# Chave secreta para sessões e segurança
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "7b9e8f1c4a2d5e3f8b0c9a1d4f6e8a2b5c7d9e0f1a3b5c7d9e0f1a3b5c7d9e0")
 
 # --- Configuração do Firebase ---
-# O arquivo `serviceAccountKey.json` deve estar no mesmo diretório no Render.
 FIREBASE_CREDENTIALS_PATH = "serviceAccountKey.json"
-# URL do seu Realtime Database do projeto project-revival-29e2b
 FIREBASE_DATABASE_URL = "https://project-revival-29e2b-default-rtdb.firebaseio.com" 
 
 # --- Inicialização Robusta do Firebase ---
@@ -30,39 +28,41 @@ try:
             })
             logging.info("Firebase inicializado com sucesso para o projeto project-revival-29e2b.")
         else:
-            logging.error(f"ERRO CRÍTICO: Arquivo {FIREBASE_CREDENTIALS_PATH} não encontrado! O Firebase não funcionará.")
+            logging.warning(f"AVISO: Arquivo {FIREBASE_CREDENTIALS_PATH} não encontrado. Usando modo de simulação (Mock).")
 except Exception as e:
-    logging.error(f"Erro fatal na inicialização do Firebase: {e}")
+    logging.error(f"Erro na inicialização do Firebase: {e}")
 
-# Habilitar CORS para todas as rotas e origens.
+# Habilitar CORS
 CORS(app, supports_credentials=True)
 
 # --- Funções de Utilitário para o Banco de Dados Firebase ---
 def get_user_data_from_firebase(username):
     try:
+        if not firebase_admin._apps: return None
         user_ref = db.reference(f'/users/{username}')
         return user_ref.get()
     except Exception as e:
-        logging.error(f"Erro ao buscar dados do usuário {username} no Firebase: {e}")
+        logging.error(f"Erro ao buscar dados do usuário {username}: {e}")
         return None
 
 def set_user_data_in_firebase(username, data):
     try:
+        if not firebase_admin._apps: return False
         user_ref = db.reference(f'/users/{username}')
         user_ref.set(data)
         return True
     except Exception as e:
-        logging.error(f"Erro ao definir dados do usuário {username} no Firebase: {e}")
+        logging.error(f"Erro ao definir dados do usuário {username}: {e}")
         return False
 
-def update_user_data_in_firebase(username, data):
+def get_all_users_from_firebase():
     try:
-        user_ref = db.reference(f'/users/{username}')
-        user_ref.update(data)
-        return True
+        if not firebase_admin._apps: return {}
+        users_ref = db.reference('/users')
+        return users_ref.get() or {}
     except Exception as e:
-        logging.error(f"Erro ao atualizar dados do usuário {username} no Firebase: {e}")
-        return False
+        logging.error(f"Erro ao buscar todos os usuários: {e}")
+        return {}
 
 # --- Função para obter dados da requisição ---
 def get_request_data():
@@ -71,104 +71,13 @@ def get_request_data():
     else:
         return request.form
 
-# --- Tratamento de Erros Global ---
-@app.errorhandler(400)
-def bad_request(error):
-    return jsonify({"status": "error", "message": "Requisição inválida"}), 400
+# --- ROTAS ---
 
-@app.errorhandler(401)
-def unauthorized(error):
-    return jsonify({"status": "error", "message": "Não autorizado", "details": "Credenciais inválidas ou acesso não permitido."}), 401
-
-@app.errorhandler(403)
-def forbidden(error):
-    return jsonify({"status": "error", "message": "Acesso proibido", "details": str(error)}), 403
-
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({"status": "error", "message": "Recurso não encontrado"}), 404
-
-@app.errorhandler(405)
-def method_not_allowed(error):
-    return jsonify({"status": "error", "message": "Método não permitido"}), 405
-
-@app.errorhandler(500)
-def internal_server_error(error):
-    logging.exception("Erro interno:")
-    return jsonify({"status": "error", "message": "Erro interno do servidor"}), 500
-
-# --- ROTAS DE INTERCEPTAÇÃO E LOGIN/REGISTRO ---
 @app.route("/", methods=["GET"])
 def index():
-    # Redireciona para a tela de login se acessar a raiz do site
     return render_template_string(get_auth_html("fbconnect://success", ""))
 
-@app.route("/<path:url>", methods=["POST", "GET"])
-def universal_handler(url):
-    logging.info(f"Rota: {url} | Método: {request.method}")
-
-    # 1. Rota de Login/Registro (Interface HTML)
-    if "dialog/oauth" in url or "login" in url:
-        if request.method == "POST":
-            if "auth_login_submit" in url:
-                return process_login()
-            elif "auth_register_submit" in url:
-                return process_register()
-        
-        redirect_uri = request.args.get("redirect_uri", "")
-        state = request.args.get("state", "")
-        return render_template_string(get_auth_html(redirect_uri, state))
-
-    # 2. Rota de Perfil do Jogador
-    if "profile" in url:
-        username = request.args.get("username")
-        if not username:
-            return jsonify({"status": "error", "message": "Username ausente"}), 400
-        
-        user_data = get_user_data_from_firebase(username)
-        if user_data:
-            return jsonify({
-                "status": "success", 
-                "diamonds": user_data.get("diamonds", 5000), 
-                "gold": user_data.get("gold", 10000), 
-                "items": user_data.get("items", "1001,1002")
-            })
-        return jsonify({"status": "error", "message": "Usuário não encontrado"}), 404
-
-    # 3. Rota de Ranking
-    if "ranking" in url:
-        try:
-            users_ref = db.reference('/users')
-            users = users_ref.get()
-            if not users: return jsonify({"status": "success", "rank": []})
-            
-            rank_list = []
-            for username_key, u_data in users.items():
-                rank_list.append({"user": username_key, "score": u_data.get("diamonds", 0)})
-            
-            rank_list = sorted(rank_list, key=lambda x: x['score'], reverse=True)[:10]
-            return jsonify({"status": "success", "rank": rank_list})
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    # 4. Rota Admin para Adicionar Diamantes
-    if "admin/add_diamonds" in url and request.method == "POST":
-        data = get_request_data()
-        username, amount, secret = data.get("username"), data.get("amount"), data.get("secret_key")
-        
-        if secret != app.config["SECRET_KEY"]:
-            return jsonify({"status": "error", "message": "Chave inválida"}), 403
-        
-        user_data = get_user_data_from_firebase(username)
-        if user_data:
-            new_diamonds = user_data.get("diamonds", 0) + int(amount)
-            update_user_data_in_firebase(username, {"diamonds": new_diamonds})
-            return jsonify({"status": "success", "message": f"Diamantes adicionados! Novo total: {new_diamonds}"})
-        return jsonify({"status": "error", "message": "Usuário não encontrado"}), 404
-
-    return jsonify({"status": "success", "version": "1.39", "message": "Revival Server Ativo"}), 200
-
-# Lógica de Login
+@app.route("/auth_login_submit", methods=["POST"])
 def process_login():
     data = get_request_data()
     username = data.get("username")
@@ -181,14 +90,15 @@ def process_login():
 
     user_data = get_user_data_from_firebase(username)
 
-    if user_data and user_data.get("password") == password:
+    if user_data and str(user_data.get("password")) == str(password):
         access_token = "REVIVAL_TOKEN_OK"
         final_redirect = f"{redir}#access_token={access_token}&state={state}"
+        logging.info(f"Login bem-sucedido: {username}")
         return jsonify({"status": "success", "redirect": final_redirect})
     
     return jsonify({"status": "error", "message": "Usuário ou senha incorretos"}), 401
 
-# Lógica de Registro
+@app.route("/auth_register_submit", methods=["POST"])
 def process_register():
     data = get_request_data()
     username = data.get("username")
@@ -209,13 +119,22 @@ def process_register():
         "password": password,
         "diamonds": 5000,
         "gold": 10000,
-        "items": "1001,1002"
+        "items": "1001,1002",
+        "created_at": db.server_timestamp() if firebase_admin._apps else "now"
     }
+    
     if set_user_data_in_firebase(username, new_user):
+        logging.info(f"Novo usuário registrado: {username}")
         return jsonify({"status": "success", "message": "Conta criada com sucesso!"}), 201
     return jsonify({"status": "error", "message": "Erro ao salvar conta"}), 500
 
-# HTML Premium (Vermelho e Cinza)
+@app.route("/admin/users", methods=["GET"])
+def list_users():
+    users = get_all_users_from_firebase()
+    return jsonify({"status": "success", "users": users})
+
+# --- Interface HTML ---
+
 def get_auth_html(redir, state):
     return f"""
     <!DOCTYPE html>
@@ -223,41 +142,145 @@ def get_auth_html(redir, state):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Revival Server</title>
+        <title>Revival Server | Painel</title>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-            body {{ background: #0a0a0a; color: #fff; font-family: 'Orbitron', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-            .container {{ background: #1a1a1a; border: 2px solid #ff0000; padding: 30px; border-radius: 15px; width: 320px; text-align: center; box-shadow: 0 0 20px #ff0000; }}
-            .tabs {{ display: flex; margin-bottom: 20px; }}
-            .tab {{ flex: 1; padding: 10px; cursor: pointer; border-bottom: 2px solid #333; color: #888; transition: 0.3s; }}
-            .tab.active {{ border-bottom: 2px solid #ff0000; color: #fff; }}
-            input {{ width: calc(100% - 24px); padding: 12px; margin: 10px 0; background: #222; border: 1px solid #444; border-radius: 8px; color: #fff; text-align: center; }}
-            button {{ width: 100%; padding: 15px; background: #ff0000; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 15px; }}
-            #msg {{ margin-top: 15px; color: #ff0000; font-size: 12px; min-height: 15px; }}
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap');
+            
+            :root {{
+                --primary: #ff0000;
+                --bg: #0a0a0a;
+                --card: #1a1a1a;
+                --text: #ffffff;
+                --gray: #888;
+                --border: #333;
+            }}
+
+            body {{ 
+                background: var(--bg); 
+                color: var(--text); 
+                font-family: 'Roboto', sans-serif; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                min-height: 100vh; 
+                margin: 0; 
+            }}
+
+            .container {{ 
+                background: var(--card); 
+                border: 2px solid var(--primary); 
+                padding: 30px; 
+                border-radius: 15px; 
+                width: 400px; 
+                text-align: center; 
+                box-shadow: 0 0 25px rgba(255, 0, 0, 0.3); 
+            }}
+
+            h2 {{ font-family: 'Orbitron', sans-serif; color: var(--primary); margin-bottom: 25px; letter-spacing: 2px; }}
+
+            .tabs {{ display: flex; margin-bottom: 25px; border-bottom: 1px solid var(--border); }}
+            .tab {{ 
+                flex: 1; 
+                padding: 12px; 
+                cursor: pointer; 
+                color: var(--gray); 
+                transition: 0.3s; 
+                font-family: 'Orbitron', sans-serif;
+                font-size: 13px;
+            }}
+            .tab.active {{ border-bottom: 3px solid var(--primary); color: var(--text); }}
+
+            input {{ 
+                width: calc(100% - 24px); 
+                padding: 12px; 
+                margin: 10px 0; 
+                background: #222; 
+                border: 1px solid var(--border); 
+                border-radius: 8px; 
+                color: #fff; 
+                text-align: center; 
+                outline: none;
+            }}
+            input:focus {{ border-color: var(--primary); }}
+
+            button {{ 
+                width: 100%; 
+                padding: 15px; 
+                background: var(--primary); 
+                border: none; 
+                border-radius: 8px; 
+                color: white; 
+                font-weight: bold; 
+                cursor: pointer; 
+                text-transform: uppercase; 
+                margin-top: 15px; 
+                font-family: 'Orbitron', sans-serif;
+                transition: 0.2s;
+            }}
+            button:hover {{ background: #cc0000; transform: translateY(-2px); }}
+
+            #msg {{ margin-top: 15px; color: var(--primary); font-size: 13px; min-height: 20px; }}
+
             .form-section {{ display: none; }}
             .form-section.active {{ display: block; }}
+
+            /* Estilo para a Lista de Usuários */
+            .user-list {{ 
+                max-height: 300px; 
+                overflow-y: auto; 
+                text-align: left; 
+                margin-top: 10px; 
+                padding-right: 5px;
+            }}
+            .user-item {{ 
+                background: #252525; 
+                padding: 12px; 
+                margin-bottom: 8px; 
+                border-radius: 6px; 
+                border-left: 3px solid var(--primary);
+                cursor: pointer;
+            }}
+            .user-item:hover {{ background: #333; }}
+            .user-name {{ font-weight: bold; display: block; }}
+            .user-details {{ font-size: 11px; color: var(--gray); margin-top: 4px; }}
+            
+            ::-webkit-scrollbar {{ width: 5px; }}
+            ::-webkit-scrollbar-track {{ background: #111; }}
+            ::-webkit-scrollbar-thumb {{ background: var(--primary); }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h2 style="color:#ff0000; margin-bottom:20px;">REVIVAL</h2>
+            <h2>REVIVAL SERVER</h2>
             <div class="tabs">
                 <div id="tab-login" class="tab active" onclick="switchTab('login')">LOGIN</div>
-                <div id="tab-reg" class="tab" onclick="switchTab('reg')">REGISTRAR</div>
+                <div id="tab-reg" class="tab" onclick="switchTab('reg')">REGISTRO</div>
+                <div id="tab-users" class="tab" onclick="switchTab('users')">USUÁRIOS</div>
             </div>
+
             <div id="form-login" class="form-section active">
-                <input type="text" id="lu" placeholder="USUÁRIO">
+                <input type="text" id="lu" placeholder="NOME DE USUÁRIO">
                 <input type="password" id="lp" placeholder="SENHA">
-                <button onclick="handleAuth('login')">ENTRAR</button>
+                <button onclick="handleAuth('login')">ENTRAR NO SISTEMA</button>
             </div>
+
             <div id="form-reg" class="form-section">
-                <input type="text" id="ru" placeholder="NOVO USUÁRIO">
-                <input type="password" id="rp" placeholder="SENHA">
-                <input type="password" id="rc" placeholder="CONFIRMAR SENHA">
-                <button onclick="handleAuth('reg')">CRIAR CONTA</button>
+                <input type="text" id="ru" placeholder="ESCOLHA UM USUÁRIO">
+                <input type="password" id="rp" placeholder="DEFINA UMA SENHA">
+                <input type="password" id="rc" placeholder="CONFIRME A SENHA">
+                <button onclick="handleAuth('reg')">CRIAR MINHA CONTA</button>
             </div>
+
+            <div id="form-users" class="form-section">
+                <div id="user-list-container" class="user-list">
+                    <p style="text-align:center; color:var(--gray);">Carregando usuários...</p>
+                </div>
+                <button onclick="loadUsers()" style="padding: 10px; font-size: 11px; margin-top: 10px; background: #333;">ATUALIZAR LISTA</button>
+            </div>
+
             <div id="msg"></div>
         </div>
+
         <script>
             function switchTab(t) {{
                 document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
@@ -265,19 +288,58 @@ def get_auth_html(redir, state):
                 document.getElementById('tab-' + t).classList.add('active');
                 document.getElementById('form-' + t).classList.add('active');
                 document.getElementById('msg').innerText = "";
+                
+                if(t === 'users') loadUsers();
             }}
+
+            async function loadUsers() {{
+                const container = document.getElementById('user-list-container');
+                try {{
+                    const r = await fetch('/admin/users');
+                    const d = await r.json();
+                    if(d.status === "success") {{
+                        const users = d.users;
+                        if(!users || Object.keys(users).length === 0) {{
+                            container.innerHTML = '<p style="text-align:center; color:var(--gray);">Nenhum usuário registrado.</p>';
+                            return;
+                        }}
+                        
+                        let html = "";
+                        for(let key in users) {{
+                            const u = users[key];
+                            html += `
+                                <div class="user-item" onclick="alert('Usuário: ${{u.username}}\\nDiamantes: ${{u.diamonds}}\\nOuro: ${{u.gold}}')">
+                                    <span class="user-name">${{u.username}}</span>
+                                    <div class="user-details">
+                                        💎 ${{u.diamonds}} | 💰 ${{u.gold}} | 📦 ${{u.items}}
+                                    </div>
+                                </div>
+                            `;
+                        }}
+                        container.innerHTML = html;
+                    }}
+                }} catch(e) {{
+                    container.innerHTML = '<p style="color:red;">Erro ao carregar lista.</p>';
+                }}
+            }}
+
             async function handleAuth(type) {{
                 const msg = document.getElementById('msg');
-                msg.innerText = "Processando...";
+                msg.innerText = "Processando requisição...";
                 let body = "";
                 let url = "";
                 
                 if(type === 'login') {{
                     url = '/auth_login_submit';
-                    body = `username=${{document.getElementById('lu').value}}&pass=${{document.getElementById('lp').value}}&redirect_uri={redir}&state={state}`;
+                    const u = document.getElementById('lu').value;
+                    const p = document.getElementById('lp').value;
+                    body = `username=${{encodeURIComponent(u)}}&pass=${{encodeURIComponent(p)}}&redirect_uri={redir}&state={state}`;
                 }} else {{
                     url = '/auth_register_submit';
-                    body = `username=${{document.getElementById('ru').value}}&pass=${{document.getElementById('rp').value}}&confirm_pass=${{document.getElementById('rc').value}}`;
+                    const u = document.getElementById('ru').value;
+                    const p = document.getElementById('rp').value;
+                    const c = document.getElementById('rc').value;
+                    body = `username=${{encodeURIComponent(u)}}&pass=${{encodeURIComponent(p)}}&confirm_pass=${{encodeURIComponent(c)}}`;
                 }}
 
                 try {{
@@ -287,13 +349,25 @@ def get_auth_html(redir, state):
                         body: body
                     }});
                     const d = await r.json();
+                    
                     if(d.status === "success") {{
-                        if(type === 'login') window.location.href = d.redirect;
-                        else {{ msg.innerText = "Conta criada! Faça login."; switchTab('login'); }}
+                        if(type === 'login') {{
+                            msg.style.color = "#00ff00";
+                            msg.innerText = "Login autorizado! Redirecionando...";
+                            setTimeout(() => {{ window.location.href = d.redirect; }}, 1000);
+                        }} else {{ 
+                            msg.style.color = "#00ff00";
+                            msg.innerText = "Conta criada com sucesso!"; 
+                            setTimeout(() => switchTab('login'), 1500); 
+                        }}
                     }} else {{
+                        msg.style.color = "#ff0000";
                         msg.innerText = d.message || "Erro na operação";
                     }}
-                }} catch(e) {{ msg.innerText = "Erro de conexão"; }}
+                }} catch(e) {{ 
+                    msg.style.color = "#ff0000";
+                    msg.innerText = "Erro de conexão com o servidor"; 
+                }}
             }}
         </script>
     </body>
@@ -301,21 +375,5 @@ def get_auth_html(redir, state):
     """
 
 if __name__ == "__main__":
-    # Criar usuário inicial 'Foxyz 1020' para garantir que ele exista no Firebase
-    try:
-        if firebase_admin._apps:
-            username_test = "Foxyz 1020"
-            if not get_user_data_from_firebase(username_test):
-                logging.info(f"Criando usuário de teste: {username_test}")
-                set_user_data_in_firebase(username_test, {
-                    "username": username_test,
-                    "password": "123", # Senha padrão para teste
-                    "diamonds": 99999,
-                    "gold": 99999,
-                    "items": "1001,1002,2003"
-                })
-    except Exception as e:
-        logging.error(f"Erro ao criar usuário inicial: {e}")
-
     app.run(debug=True, host="0.0.0.0", port=5000)
     
