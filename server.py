@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify, render_template_string
-import pymysql
 from flask_sqlalchemy import SQLAlchemy
+import pymysql
 
 app = Flask(__name__)
 
@@ -12,7 +12,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Tabela de Contas dos Jogadores
+# Tabela de Contas dos Jogadores (Padrão Free Fire 2018/2019)
 class User(db.Model):
     __tablename__ = 'accounts'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -21,24 +21,33 @@ class User(db.Model):
     diamonds = db.Column(db.Integer, default=1000)
     gold = db.Column(db.Integer, default=5000)
 
-# Rota que carrega a interface HTML do seu painel
+# Rota Principal - Carrega o teu Painel Web HTML automaticamente
 @app.route('/')
 def index():
-    # Buscando o código do HTML que está na função abaixo
     return render_template_string(get_html_content())
 
-# Rota de Login para o APK e para o HTML
-@app.route('/api/login', methods=['POST'])
+# Rotas de Login Unificadas (Resolve o erro "Not Found" do APK e do HTML)
+@app.route('/api/login', methods=['POST', 'GET'])
+@app.route('/login.php', methods=['POST', 'GET'])
+@app.route('/login', methods=['POST', 'GET'])
 def login():
-    data = request.get_json() or {}
-    username = data.get('username')
-    password = data.get('password')
+    # Verifica se os dados vieram por JSON (HTML moderno) ou Form/URL (APK Antigo)
+    if request.is_json:
+        data = request.get_json() or {}
+    else:
+        data = request.form if request.form else request.args
+
+    # Tenta ler as variações de parâmetros comuns em APKs modificados
+    username = data.get('username') or data.get('user') or data.get('account')
+    password = data.get('password') or data.get('pass') or data.get('pwd')
     
     if not username or not password:
-        return jsonify({"status": "fail", "message": "Campos obrigatórios faltando"}), 400
+        return jsonify({"status": "fail", "message": "Campos obrigatórios em falta."}), 400
         
     user = User.query.filter_by(username=username).first()
+    
     if user and user.password == password:
+        # Retorno completo com a estrutura que o APK e o Painel precisam
         return jsonify({
             "status": "success",
             "message": "Login efetuado com sucesso!",
@@ -49,21 +58,27 @@ def login():
                 "gold": user.gold
             }
         }), 200
+        
     return jsonify({"status": "fail", "message": "Usuário ou senha incorretos."}), 401
 
-# Rota para Criar Conta
-@app.route('/api/register', methods=['POST'])
+# Rota de Registo de Contas (Via Painel ou APK)
+@app.route('/api/register', methods=['POST', 'GET'])
+@app.route('/register.php', methods=['POST', 'GET'])
 def register():
-    data = request.get_json() or {}
-    username = data.get('username')
-    password = data.get('password')
+    if request.is_json:
+        data = request.get_json() or {}
+    else:
+        data = request.form if request.form else request.args
+
+    username = data.get('username') or data.get('user')
+    password = data.get('password') or data.get('pass')
     
     if not username or not password:
-        return jsonify({"status": "fail", "message": "Campos obrigatórios faltando"}), 400
+        return jsonify({"status": "fail", "message": "Campos obrigatórios em falta."}), 400
         
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
-        return jsonify({"status": "fail", "message": "Usuário já existe."}), 400
+        return jsonify({"status": "fail", "message": "Este usuário já existe."}), 400
         
     new_user = User(username=username, password=password)
     db.session.add(new_user)
@@ -71,7 +86,7 @@ def register():
     
     return jsonify({"status": "success", "message": "Conta criada com sucesso!"}), 201
 
-# Função que armazena seu HTML estilizado para o painel de login
+# Interface HTML integrada diretamente no Backend
 def get_html_content():
     return """
     <!DOCTYPE html>
@@ -84,7 +99,7 @@ def get_html_content():
             body {
                 background-color: #0d1117;
                 color: #c9d1d9;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-family: 'Segoe UI', Arial, sans-serif;
                 display: flex;
                 justify-content: center;
                 align-items: center;
@@ -101,7 +116,7 @@ def get_html_content():
                 max-width: 350px;
                 text-align: center;
             }
-            h2 { color: #58a6ff; margin-bottom: 20px; }
+            h2 { color: #58a6ff; margin-bottom: 20px; font-size: 24px; text-transform: uppercase; }
             input {
                 width: 90%;
                 padding: 10px;
@@ -142,7 +157,7 @@ def get_html_content():
                 const p = document.getElementById('pass').value;
                 const respDiv = document.getElementById('response');
                 
-                respDiv.innerText = "Conectando...";
+                respDiv.innerText = "A conectar...";
                 respDiv.style.color = "#8b949e";
 
                 fetch('/api/login', {
@@ -161,7 +176,7 @@ def get_html_content():
                     }
                 })
                 .catch(err => {
-                    respDiv.innerText = "Erro ao conectar com o Zrok!";
+                    respDiv.innerText = "Erro ao conectar com o Servidor/Zrok!";
                     respDiv.style.color = "#f85149";
                 });
             }
@@ -171,6 +186,7 @@ def get_html_content():
     """
 
 if __name__ == '__main__':
+    # Cria as tabelas estruturadas no banco do Termux via Zrok automaticamente
     try:
         with app.app_context():
             db.create_all()
