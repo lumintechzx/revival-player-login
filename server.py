@@ -8,40 +8,55 @@ from firebase_admin import credentials, db
 # --- CONFIGURAÇÃO ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "revival_secret_key_123"
+app.config["SECRET_KEY"] = "revival_final_key_999"
 CORS(app)
 
-FIREBASE_DATABASE_URL = "https://project-revival-29e2b-default-rtdb.firebaseio.com"
-FIREBASE_CRED_PATH = "serviceAccountKey.json"
+# URL do seu Database
+DB_URL = "https://project-revival-29e2b-default-rtdb.firebaseio.com"
 
-firebase_status = "Iniciando..."
+# --- CONFIGURAÇÃO MANUAL DO FIREBASE (SUBSTITUA OS VALORES ABAIXO) ---
+# Abra seu serviceAccountKey.json e preencha aqui para não depender de arquivo externo
+firebase_config = {
+  "type": "service_account",
+  "project_id": "project-revival-29e2b",
+  "private_key_id": "eefd18bd03bb13f1303a4a7d99c1fd629bad7e02",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDEiWzSV7BWO1Qi\nLJig7E8ToFyLjf5GeBWjA3ySEkuavCo4sqxUj02GKn8AKgX796W1oR58TyEnJaAc\nQK3fAwIyjh4eU17SlgUwX+IFG5lwBwi6lUYjRGxP3KHFu10JRd9ClfSV7AYerJ7v\nTVZmrWj89FsvE5KA4Zq/5gTh5eRsBswMq6y/YUD3/592J1RfmZ9z+3gqyJk9K5Vi\nIp44/V41PqAg6S0B7yq3xxOpuM5BBy3DY4NGKuV9PXnscnzs1+NM4WAi1Cd2ZDDc\nDB137oJ3qP8egXLINo6kpangsd9EY6BKF4D7DqItysHpHTmH8+kr6zVeP6yoT5VC\nOzZANu9NAgMBAAECggEAAowrenCDiyKavRSp59AYWE9IU9DD3oL4+NN3Pmd5Tmio\n/XIndLMk1JvhaI2i5Ti5D6kmfYMDEYBV2nfmKRFfamtYLZl0DbO/Hnjns5w/eWnF\n7bE4pwVgiAp6mFcM5i1fLvxFntnf3G7tYnm0qIEP7tN2CR6uU/hYqqsfHhR+SP4p\nvZJHuAm7/aVz/QhC70KaaqOGOyyIi2no+2kl1iPwtWhGpnd8/HvhvbMb1E7XSBqu\nVLsTN5dc8xW5hHRy66S2HE8mi9HN6ZKuDRtgK13dv32+dBXRASccTpRnHoSjImBw\nEYlXXun9OaWLa2S7hqpp7j30HSdUTo/gPI5PXbNysQKBgQDrVk79nSMcKQUV3xzz\nhx1mZTckFc5XGmhQBbWaamKY8VRF+NiHLLZ0uiXB5pc0+K7NU+6gw/k9IhRiCNL1\n9wRaP/N1gGkv2XF4GJUrb3XAPBGd2IzjOfCDJLHhW0YbeIYFGnkenUHfS6lHxcCg\n+mxOxL2povqh35omz75rQ8GViQKBgQDVyv+hBmGx4MaDaqqOy6qT/lxmjjFXGIfI\n9LiUhUrOgKSSSSwVy1ENgmv4li2gOvI8wGX7xaxL2y7wW5J0s1aMNWH7N8ieTHV4\nykRiqpbcCp+vEvH4418RxVnh29UKws2mpSyAH5zN14CIxb7cie58haZIC5j7JXh3\nz0pW9i+epQKBgGDxk+aLdawjBbJFz5JOJYFJzpYx2WcuPKxCPdYXXvhr6XBNmzzL\n4XliOS2QBNfQXYm9un5FXIWfZVAhHG4wTH20/GB5/lq0szZqwgA7kQEYfZVNYHQ2\nKOqNEi2oQNAOLP8rMZu34ivO6jPjtX9ayYUFLLAVsDNAfirgxys+pR8pAoGAevbc\n/IKtIiAETYXGP4dIvwInpxzVqCCFyMFogJQBqLA496J6ZragEcMX0sydxXDh7qtC\nfQL+zEpuvvQMUm7rsozppBI7o0CauDSuDInNZxX9LjcZUWuFPLVjsxI7gIr2uYh7\nBd4o1APE++WwlywGLTy5nOp+vMSae16QhV/nl7kCgYEApsGhL5DzMtsG6G7TxA39\nfpt2+Vm/gYKyJQnrQ+OnXr2r8VQm7a+0UD9i9L7U0eOY/tfVIln00NKg82mBmm0c\nX+DRunpSZT9hCzuzvVBWVFpZk6mdIgVOLpnfJm5c6hBSmtgkwaVQewpounQjv/cJ\nrrquGdxdlW+TVSgSEgfJ3Zk=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@project-revival-29e2b.iam.gserviceaccount.com",
+  "client_id": "117277650859934457522",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40project-revival-29e2b.iam.gserviceaccount.com"
+}
+
+firebase_status = "Aguardando configuração..."
 
 try:
     if not firebase_admin._apps:
-        if os.path.exists(FIREBASE_CRED_PATH):
-            cred = credentials.Certificate(FIREBASE_CRED_PATH)
-            firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
-            firebase_status = "Conectado"
+        # Tenta carregar do dicionário acima se preenchido, senão tenta do arquivo
+        if firebase_config["private_key"] != "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDEiWzSV7BWO1Qi\nLJig7E8ToFyLjf5GeBWjA3ySEkuavCo4sqxUj02GKn8AKgX796W1oR58TyEnJaAc\nQK3fAwIyjh4eU17SlgUwX+IFG5lwBwi6lUYjRGxP3KHFu10JRd9ClfSV7AYerJ7v\nTVZmrWj89FsvE5KA4Zq/5gTh5eRsBswMq6y/YUD3/592J1RfmZ9z+3gqyJk9K5Vi\nIp44/V41PqAg6S0B7yq3xxOpuM5BBy3DY4NGKuV9PXnscnzs1+NM4WAi1Cd2ZDDc\nDB137oJ3qP8egXLINo6kpangsd9EY6BKF4D7DqItysHpHTmH8+kr6zVeP6yoT5VC\nOzZANu9NAgMBAAECggEAAowrenCDiyKavRSp59AYWE9IU9DD3oL4+NN3Pmd5Tmio\n/XIndLMk1JvhaI2i5Ti5D6kmfYMDEYBV2nfmKRFfamtYLZl0DbO/Hnjns5w/eWnF\n7bE4pwVgiAp6mFcM5i1fLvxFntnf3G7tYnm0qIEP7tN2CR6uU/hYqqsfHhR+SP4p\nvZJHuAm7/aVz/QhC70KaaqOGOyyIi2no+2kl1iPwtWhGpnd8/HvhvbMb1E7XSBqu\nVLsTN5dc8xW5hHRy66S2HE8mi9HN6ZKuDRtgK13dv32+dBXRASccTpRnHoSjImBw\nEYlXXun9OaWLa2S7hqpp7j30HSdUTo/gPI5PXbNysQKBgQDrVk79nSMcKQUV3xzz\nhx1mZTckFc5XGmhQBbWaamKY8VRF+NiHLLZ0uiXB5pc0+K7NU+6gw/k9IhRiCNL1\n9wRaP/N1gGkv2XF4GJUrb3XAPBGd2IzjOfCDJLHhW0YbeIYFGnkenUHfS6lHxcCg\n+mxOxL2povqh35omz75rQ8GViQKBgQDVyv+hBmGx4MaDaqqOy6qT/lxmjjFXGIfI\n9LiUhUrOgKSSSSwVy1ENgmv4li2gOvI8wGX7xaxL2y7wW5J0s1aMNWH7N8ieTHV4\nykRiqpbcCp+vEvH4418RxVnh29UKws2mpSyAH5zN14CIxb7cie58haZIC5j7JXh3\nz0pW9i+epQKBgGDxk+aLdawjBbJFz5JOJYFJzpYx2WcuPKxCPdYXXvhr6XBNmzzL\n4XliOS2QBNfQXYm9un5FXIWfZVAhHG4wTH20/GB5/lq0szZqwgA7kQEYfZVNYHQ2\nKOqNEi2oQNAOLP8rMZu34ivO6jPjtX9ayYUFLLAVsDNAfirgxys+pR8pAoGAevbc\n/IKtIiAETYXGP4dIvwInpxzVqCCFyMFogJQBqLA496J6ZragEcMX0sydxXDh7qtC\nfQL+zEpuvvQMUm7rsozppBI7o0CauDSuDInNZxX9LjcZUWuFPLVjsxI7gIr2uYh7\nBd4o1APE++WwlywGLTy5nOp+vMSae16QhV/nl7kCgYEApsGhL5DzMtsG6G7TxA39\nfpt2+Vm/gYKyJQnrQ+OnXr2r8VQm7a+0UD9i9L7U0eOY/tfVIln00NKg82mBmm0c\nX+DRunpSZT9hCzuzvVBWVFpZk6mdIgVOLpnfJm5c6hBSmtgkwaVQewpounQjv/cJ\nrrquGdxdlW+TVSgSEgfJ3Zk=\n-----END PRIVATE KEY-----\n":
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred, {'databaseURL': DB_URL})
+            firebase_status = "Conectado via Código"
+        elif os.path.exists("serviceAccountKey.json"):
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred, {'databaseURL': DB_URL})
+            firebase_status = "Conectado via Arquivo"
         else:
-            firebase_status = "Arquivo serviceAccountKey.json não encontrado"
+            firebase_status = "Erro: Configure o dicionário firebase_config no server.py"
 except Exception as e:
-    firebase_status = f"Erro na inicialização: {str(e)}"
+    firebase_status = f"Erro: {str(e)}"
 
 # --- FUNÇÕES ---
-def get_user_data(username):
-    try:
-        return db.reference(f'/users/{username}').get()
-    except Exception as e:
-        logging.error(f"Erro ao buscar {username}: {e}")
-        return "ERROR"
+def get_user(u):
+    try: return db.reference(f'/users/{u}').get()
+    except: return "ERR"
 
-def save_user_data(username, data):
+def save_user(u, d):
     try:
-        db.reference(f'/users/{username}').set(data)
+        db.reference(f'/users/{u}').set(d)
         return True
-    except Exception as e:
-        logging.error(f"Erro ao salvar {username}: {e}")
-        return False
+    except: return False
 
 # --- ROTAS ---
 @app.route("/", methods=["GET"])
@@ -54,44 +69,28 @@ def index():
 def universal(path):
     if path == "auth_login_submit":
         data = request.form
-        user = data.get("username")
-        pw = data.get("pass")
-        redir = data.get("redirect_uri")
-        state = data.get("state")
-        
-        res = get_user_data(user)
-        if res == "ERROR":
-            return jsonify({"status": "error", "message": "Erro de conexão com o Firebase. Verifique a chave JSON."}), 500
-        
-        if res and str(res.get("password")) == str(pw):
-            return jsonify({"status": "success", "redirect": f"{redir}#access_token=OK&state={state}"})
-        return jsonify({"status": "error", "message": "Usuário ou senha incorretos"}), 401
+        u, p = data.get("username"), data.get("pass")
+        redir, state = data.get("redirect_uri"), data.get("state")
+        res = get_user(u)
+        if res == "ERR": return jsonify({"status":"error", "message":"Erro Firebase"}), 500
+        if res and str(res.get("password")) == str(p):
+            return jsonify({"status":"success", "redirect": f"{redir}#access_token=OK&state={state}"})
+        return jsonify({"status":"error", "message":"Usuário/Senha incorretos"}), 401
 
     if path == "auth_register_submit":
         data = request.form
-        user = data.get("username")
-        pw = data.get("pass")
-        cpw = data.get("confirm_pass")
-        
-        if pw != cpw:
-            return jsonify({"status": "error", "message": "Senhas não coincidem"}), 400
-            
-        if get_user_data(user) not in [None, "ERROR"]:
-            return jsonify({"status": "error", "message": "Usuário já existe"}), 409
-            
-        new_user = {"username": user, "password": pw, "diamonds": 5000, "gold": 10000}
-        if save_user_data(user, new_user):
-            return jsonify({"status": "success", "message": "Conta criada!"})
-        return jsonify({"status": "error", "message": "Erro ao salvar no Firebase. Verifique as Regras do Database."}), 500
+        u, p, cp = data.get("username"), data.get("pass"), data.get("confirm_pass")
+        if p != cp: return jsonify({"status":"error", "message":"Senhas diferentes"}), 400
+        if get_user(u) not in [None, "ERR"]: return jsonify({"status":"error", "message":"Já existe"}), 409
+        if save_user(u, {"username":u, "password":p, "diamonds":5000, "gold":10000}):
+            return jsonify({"status":"success", "message":"Criado!"})
+        return jsonify({"status":"error", "message":"Erro ao salvar"}), 500
 
     if path == "admin/users":
-        try:
-            users = db.reference('/users').get() or {}
-            return jsonify({"status": "success", "users": users})
-        except:
-            return jsonify({"status": "error", "message": "Erro ao listar"}), 500
+        try: return jsonify({"status":"success", "users": db.reference('/users').get() or {}})
+        except: return jsonify({"status":"error"}), 500
 
-    return jsonify({"status": "success", "msg": "Server Online"}), 200
+    return jsonify({"status":"success", "msg":"Online"}), 200
 
 def get_html():
     return """
@@ -104,7 +103,7 @@ def get_html():
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
             body { background: #000; color: #fff; font-family: 'Orbitron', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: #111; border: 2px solid #f00; padding: 25px; border-radius: 15px; width: 300px; text-align: center; box-shadow: 0 0 20px #f00; }
+            .box { background: #111; border: 2px solid #f00; padding: 25px; border-radius: 15px; width: 300px; text-align: center; box-shadow: 0 0 20px #f00; }
             input { width: 100%; box-sizing: border-box; padding: 12px; margin: 10px 0; background: #222; border: 1px solid #444; border-radius: 8px; color: #fff; text-align: center; font-family: 'Orbitron'; }
             button { width: 100%; padding: 12px; background: #f00; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: 'Orbitron'; }
             .tabs { display: flex; margin-bottom: 15px; }
@@ -112,12 +111,12 @@ def get_html():
             .tab.active { color: #fff; border-bottom: 2px solid #f00; }
             .sec { display: none; }
             .sec.active { display: block; }
-            #msg { margin-top: 15px; font-size: 11px; color: #f00; }
-            .status { font-size: 9px; color: #444; margin-top: 10px; }
+            #msg { margin-top: 15px; font-size: 11px; color: #f00; min-height: 15px; }
+            .st { font-size: 9px; color: #444; margin-top: 10px; }
         </style>
     </head>
     <body>
-        <div class="card">
+        <div class="box">
             <h2 style="color:#f00; margin-bottom:20px;">REVIVAL</h2>
             <div class="tabs">
                 <div id="t1" class="tab active" onclick="sw('login')">LOGIN</div>
@@ -140,7 +139,7 @@ def get_html():
                 <button onclick="load()" style="background:#222; font-size:10px;">RECARREGAR</button>
             </div>
             <div id="msg"></div>
-            <div class="status">Firebase: {{ status }}</div>
+            <div class="st">Status: {{ status }}</div>
         </div>
         <script>
             const REDIR = "{{ redir }}"; const STATE = "{{ state }}";
