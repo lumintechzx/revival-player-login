@@ -1,139 +1,108 @@
 import os
-import json
 import logging
 import datetime
 from flask import Flask, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit
-import firebase_admin
-from firebase_admin import credentials, db, auth
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# Configuração de logs para acompanhar os acessos pelo painel do Render
+# Configuração de Logs para o Render
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'revival_secret_key_777!')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'revival_master_secret_key_999')
 
-# Ativa o SocketIO configurado para rodar com as threads nativas do Gunicorn
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Configuração do Banco de Dados SQLite Local
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'users.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# ==================== CONFIGURAÇÃO DO FIREBASE ====================
-if os.environ.get('FIREBASE_CREDENTIALS'):
-    try:
-        cred_json = json.loads(os.environ.get('FIREBASE_CREDENTIALS'))
-        cred = credentials.Certificate(cred_json)
-    except Exception as e:
-        logging.error(f"Erro ao carregar FIREBASE_CREDENTIALS das variaveis: {e}")
-        cred = None
-else:
-    try:
-        cred = credentials.Certificate("credenciais.json")
-    except Exception:
-        logging.warning("Arquivo credenciais.json nao encontrado localmente.")
-        cred = None
+db = SQLAlchemy(app)
 
-if cred:
-    try:
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://project-revival-29e2b-default-rtdb.firebaseio.com'
-        })
-        logging.info("Firebase Admin inicializado com sucesso!")
-    except Exception as e:
-        logging.error(f"Erro ao inicializar o Firebase: {e}")
-else:
-    logging.error("Nenhuma credencial do Firebase foi detectada!")
+# ==================== MODELO DA DATABASE ====================
+class Player(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    nick = db.Column(db.String(80), default='Recruta')
+    nivel = db.Column(db.Integer, default=1)
+    ouro = db.Column(db.Integer, default=0)
+    diamantes = db.Column(db.Integer, default=0)
+    cargo = db.Column(db.String(30), default='Jogador') # Jogador ou Admin
+    banido = db.Column(db.Boolean, default=False)
 
-# ==================== ROTAS HTTP (INTERFACES E API) ====================
+# Criar as tabelas e o administrador inicial caso não existam
+with app.app_context():
+    db.create_all()
+    # Verifica se o admin mestre já existe para não duplicar
+    if not Player.query.filter_by(username='admin').first():
+        senha_cripto = generate_password_hash('123456')
+        admin_mestre = Player(
+            username='admin',
+            password=senha_cripto,
+            nick='Cientista Dev',
+            nivel=99,
+            ouro=999999,
+            diamantes=999999,
+            cargo='Admin'
+        )
+        db.session.add(admin_mestre)
+        db.session.commit()
+        logging.info("Database SQLite inicializada e Administrador padrão criado com sucesso!")
 
-# Rota Principal - Entrega o index.html usando o caminho absoluto correto do Render
+# ==================== ROTAS DO SERVIDOR ====================
+
 @app.route('/')
 def index():
     try:
-        diretorio_raiz = os.path.abspath(os.path.dirname(__file__))
-        logging.info(f"Servindo index.html a partir de: {diretorio_raiz}")
-        return send_from_directory(diretorio_raiz, 'index.html')
+        return send_from_directory(BASE_DIR, 'index.html')
     except Exception as e:
-        logging.error(f"Erro ao servir o index.html: {e}")
-        return f"Erro interno ao carregar a interface: {str(e)}", 500
+        logging.error(f"Erro ao carregar index.html: {e}")
+        return "Erro interno ao carregar a interface de login.", 500
 
-# Rota de Status - Para voce testar direto no navegador se o servidor esta vivo
-@app.route('/status')
-def status():
-    return jsonify({
-        "status": "online",
-        "version": "1.0.0-LOGIN-CORE",
-        "timestamp": datetime.datetime.utcnow().isoformat()
-    }), 200
-
-# Rota de Login da API do Jogo (Valida Usuario e Senha via Firebase Auth REST API)
 @app.route('/api/v1/auth/login', methods=['POST'])
 def player_login():
     data = request.get_json() or {}
-    email = data.get('email')
-    password = data.get('password')
+    username_input = data.get('email', '').strip()
+    password_input = data.get('password', '')
 
-    if not email or not password:
-        return jsonify({"success": False, "msg": "E-mail ou senha ausentes."}), 400
+    if not username_input or not password_input:
+        return jsonify({"success": False, "msg": "Preencha todos os campos."}), 400
 
     try:
-        # 1. Busca o usuario pelo email para obter o UID e confirmar se a conta existe
-        user = auth.get_user_by_email(email)
-        uid = user.uid
-
-        # 2. Busca os dados do jogador no Realtime Database do Firebase
-        user_ref = db.reference(f'users/{uid}')
-        player = user_ref.get()
+        # Busca o usuário na database SQLite local
+        player = Player.query.filter_by(username=username_input).first()
 
         if not player:
-            return jsonify({"success": False, "msg": "Perfil nao encontrado no banco de dados."}), 404
+            return jsonify({"success": False, "msg": "Conta não encontrada no servidor."}), 404
 
-        # 3. Verifica se o jogador está banido do servidor
-        if player.get('banido', False):
-            return jsonify({"success": False, "msg": "Acesso Suspenso. Esta conta esta banida."}), 403
+        # Valida a senha usando hash seguro
+        if not check_password_hash(player.password, password_input):
+            return jsonify({"success": False, "msg": "Senha incorreta."}), 401
 
-        # 4. Atualiza o status de conexao e timestamp no banco de dados
-        user_ref.update({
-            'status': 'online',
-            'ultima_conexao': datetime.datetime.utcnow().isoformat()
-        })
+        if player.banido:
+            return jsonify({"success": False, "msg": "Esta conta está suspensa permanentemente."}), 403
 
-        # Retorna o perfil completo do jogador (com ouro, dimas, nivel e nick)
+        # Retorna o resultado com base no cargo da conta
         return jsonify({
             "success": True,
+            "cargo": player.cargo,
             "profile": {
-                "uid": uid,
-                "nick": player.get('nick', 'Recruta'),
-                "nivel": player.get('nivel', 1),
-                "ouro": player.get('moedas', 0),
-                "diamantes": player.get('diamantes', 0)
+                "nick": player.nick,
+                "nivel": player.nivel,
+                "ouro": player.ouro,
+                "diamantes": player.diamantes
             }
         }), 200
+
     except Exception as e:
-        logging.error(f"Erro de login para o e-mail {email}: {e}")
-        return jsonify({"success": False, "msg": "Dados invalidos ou erro de autenticacao."}), 401
+        logging.error(f"Erro no processamento do login: {e}")
+        return jsonify({"success": False, "msg": "Erro interno no gerenciador de login."}), 500
 
-
-# ==================== CONTROLE DE ERRO 404 (BLINDAGEM DO APK) ====================
 @app.errorhandler(404)
 def page_not_found(e):
-    try:
-        diretorio_raiz = os.path.abspath(os.path.dirname(__file__))
-        logging.info(f"APK tentou acessar rota invalida. Redirecionando para index.html")
-        return send_from_directory(diretorio_raiz, 'index.html')
-    except Exception as err:
-        logging.error(f"Erro no redirecionamento do erro 404: {err}")
-        return "Erro interno do servidor", 500
-
-
-# ==================== EVENTOS WEBSOCKET ====================
-@socketio.on('connect')
-def handle_connect():
-    logging.info(f"Jogador conectado via WebSocket: {request.sid}")
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    logging.info(f"Jogador desconectado do WebSocket: {request.sid}")
+    return send_from_directory(BASE_DIR, 'index.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
-    
+    app.run(host='0.0.0.0', port=port)
+                            
