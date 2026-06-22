@@ -21,33 +21,40 @@ class User(db.Model):
     diamonds = db.Column(db.Integer, default=1000)
     gold = db.Column(db.Integer, default=5000)
 
-# Rota Principal - Carrega o teu Painel Web HTML automaticamente
+# Rota Principal - Carrega o seu Painel Web HTML automaticamente
 @app.route('/')
 def index():
     return render_template_string(get_html_content())
 
-# Rotas de Login Unificadas (Resolve o erro "Not Found" do APK e do HTML)
+# 🔥 ROTA CORINGA UNIVERSAL: Captura QUALQUER link que o APK tentar acessar
+@app.route('/<path:url>', methods=['POST', 'GET'])
 @app.route('/api/login', methods=['POST', 'GET'])
 @app.route('/login.php', methods=['POST', 'GET'])
-@app.route('/login', methods=['POST', 'GET'])
-def login():
-    # Verifica se os dados vieram por JSON (HTML moderno) ou Form/URL (APK Antigo)
+def login_universal(url=None):
+    # Loga no painel do Render qual link o APK tentou acessar para você monitorar
+    print(f"[REQUISIÇÃO DETECTADA]: O APK tentou acessar a rota: /{url}")
+
+    # Coleta os dados independente se vieram por JSON, Formulário ou URL
     if request.is_json:
         data = request.get_json() or {}
     else:
         data = request.form if request.form else request.args
 
-    # Tenta ler as variações de parâmetros comuns em APKs modificados
-    username = data.get('username') or data.get('user') or data.get('account')
-    password = data.get('password') or data.get('pass') or data.get('pwd')
+    # Pega qualquer variação de nome que o APK antigo usar para Usuário e Senha
+    username = data.get('username') or data.get('user') or data.get('account') or data.get('username_input')
+    password = data.get('password') or data.get('pass') or data.get('pwd') or data.get('password_input')
     
+    # Se o APK chamou uma rota aleatória que não enviou dados de login (como checagem de versão)
     if not username or not password:
-        return jsonify({"status": "fail", "message": "Campos obrigatórios em falta."}), 400
+        return jsonify({
+            "status": "success", 
+            "message": "Servidor Revival Online", 
+            "version": "1.39"
+        }), 200
         
     user = User.query.filter_by(username=username).first()
     
     if user and user.password == password:
-        # Retorno completo com a estrutura que o APK e o Painel precisam
         return jsonify({
             "status": "success",
             "message": "Login efetuado com sucesso!",
@@ -96,48 +103,12 @@ def get_html_content():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Revival FF - Painel de Acesso</title>
         <style>
-            body {
-                background-color: #0d1117;
-                color: #c9d1d9;
-                font-family: 'Segoe UI', Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }
-            .login-card {
-                background: #161b22;
-                padding: 30px;
-                border-radius: 10px;
-                border: 1px solid #30363d;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-                width: 100%;
-                max-width: 350px;
-                text-align: center;
-            }
+            body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .login-card { background: #161b22; padding: 30px; border-radius: 10px; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 100%; max-width: 350px; text-align: center; }
             h2 { color: #58a6ff; margin-bottom: 20px; font-size: 24px; text-transform: uppercase; }
-            input {
-                width: 90%;
-                padding: 10px;
-                margin: 10px 0;
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                color: #fff;
-            }
+            input { width: 90%; padding: 10px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #fff; }
             input:focus { border-color: #58a6ff; outline: none; }
-            button {
-                width: 96%;
-                padding: 12px;
-                background: #238636;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                cursor: pointer;
-                margin-top: 15px;
-            }
+            button { width: 96%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
             button:hover { background: #2ea44f; }
             #response { margin-top: 15px; font-size: 14px; font-weight: bold; }
         </style>
@@ -150,16 +121,13 @@ def get_html_content():
             <button onclick="enviarLogin()">ENTRAR NO SERVIDOR</button>
             <div id="response"></div>
         </div>
-
         <script>
             function enviarLogin() {
                 const u = document.getElementById('user').value;
                 const p = document.getElementById('pass').value;
                 const respDiv = document.getElementById('response');
-                
                 respDiv.innerText = "A conectar...";
                 respDiv.style.color = "#8b949e";
-
                 fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -186,7 +154,6 @@ def get_html_content():
     """
 
 if __name__ == '__main__':
-    # Cria as tabelas estruturadas no banco do Termux via Zrok automaticamente
     try:
         with app.app_context():
             db.create_all()
@@ -195,4 +162,4 @@ if __name__ == '__main__':
         
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-    
+        
