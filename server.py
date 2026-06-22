@@ -5,13 +5,13 @@ from flask import Flask, request, jsonify, render_template_string, redirect, url
 from flask_cors import CORS
 
 import firebase_admin
-from firebase_admin import credentials, auth, db
+from firebase_admin import credentials, db
 
 # --- CONFIGURAÇÃO INICIAL ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 app = Flask(__name__)
 
-# CORREÇÃO: Fechando as aspas corretamente na SECRET_KEY
+# É CRÍTICO que esta chave seja forte, única e mantida em segredo. Use variáveis de ambiente em produção.
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "7b9e8f1c4a2d5e3f8b0c9a1d4f6e8a2b5c7d9e0f1a3b5c7d9e0f1a3b5c7d9e0")
 
 # --- Configuração do Firebase ---
@@ -71,6 +71,32 @@ def get_request_data():
     else:
         return request.form
 
+# --- Tratamento de Erros Global ---
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"status": "error", "message": "Requisição inválida"}), 400
+
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({"status": "error", "message": "Não autorizado", "details": "Credenciais inválidas ou acesso não permitido."}), 401
+
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({"status": "error", "message": "Acesso proibido", "details": str(error)}), 403
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"status": "error", "message": "Recurso não encontrado"}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    return jsonify({"status": "error", "message": "Método não permitido"}), 405
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    logging.exception("Erro interno:")
+    return jsonify({"status": "error", "message": "Erro interno do servidor"}), 500
+
 # --- ROTAS DE INTERCEPTAÇÃO E LOGIN/REGISTRO ---
 @app.route("/", methods=["GET"])
 def index():
@@ -89,7 +115,7 @@ def universal_handler(url):
             elif "auth_register_submit" in url:
                 return process_register()
         
-        redirect_uri = request.args.get("redirect_uri", "fbconnect://success")
+        redirect_uri = request.args.get("redirect_uri", "")
         state = request.args.get("state", "")
         return render_template_string(get_auth_html(redirect_uri, state))
 
@@ -292,4 +318,4 @@ if __name__ == "__main__":
         logging.error(f"Erro ao criar usuário inicial: {e}")
 
     app.run(debug=True, host="0.0.0.0", port=5000)
-                        
+    
