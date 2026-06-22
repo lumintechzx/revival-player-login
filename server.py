@@ -20,15 +20,19 @@ FIREBASE_CREDENTIALS_PATH = "serviceAccountKey.json"
 # URL do seu Realtime Database do projeto project-revival-29e2b
 FIREBASE_DATABASE_URL = "https://project-revival-29e2b-default-rtdb.firebaseio.com" 
 
+# --- Inicialização Robusta do Firebase ---
 try:
     if not firebase_admin._apps:
-        cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': FIREBASE_DATABASE_URL
-        })
-    logging.info("Firebase inicializado com sucesso para o projeto project-revival-29e2b.")
+        if os.path.exists(FIREBASE_CREDENTIALS_PATH):
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': FIREBASE_DATABASE_URL
+            })
+            logging.info("Firebase inicializado com sucesso para o projeto project-revival-29e2b.")
+        else:
+            logging.error(f"ERRO CRÍTICO: Arquivo {FIREBASE_CREDENTIALS_PATH} não encontrado! O Firebase não funcionará.")
 except Exception as e:
-    logging.error(f"Erro ao inicializar Firebase: {e}")
+    logging.error(f"Erro fatal na inicialização do Firebase: {e}")
 
 # Habilitar CORS para todas as rotas e origens.
 CORS(app, supports_credentials=True)
@@ -271,5 +275,21 @@ def get_auth_html(redir, state):
     """
 
 if __name__ == "__main__":
+    # Criar usuário inicial 'Foxyz 1020' para garantir que ele exista no Firebase
+    try:
+        if firebase_admin._apps:
+            username_test = "Foxyz 1020"
+            if not get_user_data_from_firebase(username_test):
+                logging.info(f"Criando usuário de teste: {username_test}")
+                set_user_data_in_firebase(username_test, {
+                    "username": username_test,
+                    "password": "123", # Senha padrão para teste
+                    "diamonds": 99999,
+                    "gold": 99999,
+                    "items": "1001,1002,2003"
+                })
+    except Exception as e:
+        logging.error(f"Erro ao criar usuário inicial: {e}")
+
     app.run(debug=True, host="0.0.0.0", port=5000)
-    
+                        
