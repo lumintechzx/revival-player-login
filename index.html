@@ -3,79 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Revival - Login System</title>
+    <title>Project Revival - Authenticator</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; height: 100vh; color: #fff; }
-        .login-container { background: #121214; border: 2px solid #322124; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); text-align: center; }
-        .logo { font-size: 24px; font-weight: bold; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
-        .logo span { color: #e51c44; }
-        .input-group { margin-bottom: 15px; text-align: left; }
-        .input-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 6px; text-transform: uppercase; }
-        .input-group input { width: 100%; padding: 12px; background: #202024; border: 1px solid #322124; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
-        .input-group input:focus { border-color: #e51c44; }
-        .btn { width: 100%; padding: 14px; background: #e51c44; border: none; border-radius: 8px; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
-        .btn:hover { background: #b81434; }
-        .status-box { display: none; animation: fadeIn 0.5s ease forwards; }
-        .status-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; }
-        .status-title span { color: #4cd67d; }
-        .profile-data { background: #202024; border-radius: 8px; padding: 15px; text-align: left; font-size: 14px; margin-bottom: 20px; line-height: 1.8; }
-        .profile-data span { color: #e51c44; font-weight: bold; }
-        .error-msg { color: #e51c44; font-size: 13px; margin-top: 10px; display: none; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle, #1a0f12 0%, #0a0a0c 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .login-container {
+            background: #0f0f12;
+            border: 2px solid #e51c44;
+            border-radius: 20px;
+            padding: 35px 25px;
+            width: 88%;
+            max-width: 380px;
+            box-shadow: 0 0 25px rgba(229, 28, 68, 0.25);
+            text-align: center;
+            position: relative;
+            animation: painelEntrada 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(229, 28, 68, 0.5);
+        }
+
+        .logo span {
+            color: #e51c44;
+        }
+
+        .input-group {
+            margin-bottom: 18px;
+            text-align: left;
+            position: relative;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            color: #e51c44;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px;
+            background: #16161c;
+            border: 1px solid #2d1b20;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: #e51c44;
+            box-shadow: 0 0 10px rgba(229, 28, 68, 0.2);
+            background: #1c1c24;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #e51c44 0%, #b81434 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(229, 28, 68, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(229, 28, 68, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Telas de Status Dinâmicas */
+        .status-box {
+            display: none;
+        }
+
+        .status-icon {
+            font-size: 45px;
+            margin-bottom: 15px;
+        }
+
+        .status-success .status-icon { color: #00ff66; text-shadow: 0 0 15px rgba(0, 255, 102, 0.4); }
+        .status-admin .status-icon { color: #00e1ff; text-shadow: 0 0 15px rgba(0, 225, 255, 0.4); }
+
+        .status-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .profile-data {
+            background: #16161c;
+            border: 1px solid #22222a;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: left;
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 2;
+        }
+
+        .profile-data span {
+            color: #e51c44;
+            font-weight: bold;
+            float: right;
+        }
+
+        .profile-data .admin-label {
+            color: #00e1ff;
+        }
+
+        /* Notificações de Erro e Sucesso Flutuantes */
+        .alert-msg {
+            background: rgba(229, 28, 68, 0.15);
+            border: 1px solid #e51c44;
+            color: #ff4d6d;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 13px;
+            margin-top: 15px;
+            display: none;
+            font-weight: 500;
+            animation: balancoErro 0.4s ease;
+        }
+
+        /* Animações Keyframes */
+        @keyframes painelEntrada {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes balancoErro {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .loading-dots::after {
+            content: '.';
+            animation: pontinhos 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes pontinhos {
+            0% { content: ''; }
+            33% { content: '.'; }
+            66% { content: '..'; }
+            100% { content: '...'; }
+        }
     </style>
 </head>
 <body>
 
     <div class="login-container">
+        
         <div id="login-form">
             <div class="logo">Project <span>Revival</span></div>
             
             <div class="input-group">
-                <label>E-mail / Usuário</label>
-                <input type="email" id="email" placeholder="seu-email@provedor.com" required>
+                <label>E-mail ou Usuário</label>
+                <input type="text" id="email" placeholder="Digite seu login" autocomplete="off" required>
             </div>
 
             <div class="input-group">
                 <label>Senha de Acesso</label>
-                <input type="password" id="password" placeholder="••••••••" required>
+                <input type="password" id="password" placeholder="Digite sua senha" required>
             </div>
 
-            <button class="btn" id="login-btn" onclick="executarLogin()">Autenticar</button>
-            <div class="error-msg" id="error-text"></div>
+            <button class="btn" id="login-btn" onclick="executarLogin()">Conectar no Servidor</button>
+            <div class="alert-msg" id="error-text"></div>
         </div>
 
-        <div id="status-screen" class="status-box">
-            <div class="status-title">● <span>CONECTADO</span></div>
-            <p style="font-size: 11px; color: #888; margin-bottom: 20px; text-transform: uppercase;">Perfil sincronizado com o servidor</p>
+        <div id="status-success" class="status-box status-success">
+            <div class="status-icon">✓</div>
+            <div class="status-title">Acesso Concedido</div>
+            
             <div class="profile-data">
-                Jogador: <span id="prof-nick">Carregando...</span><br>
-                Nível: <span id="prof-level">1</span><br>
-                Ouro: <span id="prof-gold">0</span><br>
-                Diamantes: <span id="prof-diamonds">0</span>
+                Nick do Player: <span id="prof-nick">-</span><br>
+                Nível da Conta: <span id="prof-level">-</span><br>
+                Moedas de Ouro: <span id="prof-gold">-</span><br>
+                Diamantes Ativos: <span id="prof-diamonds">-</span>
             </div>
-            <p style="color: #4cd67d; font-size: 13px; font-weight: bold;">Iniciando o jogo automaticamente...</p>
+            <p class="loading-dots" style="color: #00ff66; font-size: 13px; font-weight: bold; uppercase">Injetando dados e iniciando</p>
         </div>
+
+        <div id="status-admin" class="status-box status-admin">
+            <div class="status-icon">⚙</div>
+            <div class="status-title" style="color: #00e1ff;">Painel do Cientista</div>
+            
+            <div class="profile-data" style="border-color: #00e1ff;">
+                Cargo do Usuário: <span class="admin-label">Administrador</span><br>
+                Modo Servidor: <span class="admin-label">Desenvolvedor</span><br>
+                Status da Database: <span style="color:#00ff66; float:right;">Online</span><br>
+                Acesso Bypass: <span class="admin-label">Liberado</span>
+            </div>
+            <button class="btn" style="background: linear-gradient(90deg, #00e1ff 0%, #008ca3 100%); box-shadow: 0 4px 15px rgba(0,225,255,0.3);" onclick="finalizarEEntrarNoJogo()">Entrar no Modo Dev</button>
+        </div>
+
     </div>
 
     <script>
-        function ejecutarLogin() {
-            const emailInput = document.getElementById('email').value;
+        function executarLogin() {
+            const emailInput = document.getElementById('email').value.trim();
             const passwordInput = document.getElementById('password').value;
             const errorText = document.getElementById('error-text');
             const loginBtn = document.getElementById('login-btn');
 
             if (!emailInput || !passwordInput) {
-                errorText.innerText = "Por favor, preencha o usuário e a senha.";
-                errorText.style.display = "block";
+                mostrarErro("Preencha todos os campos obrigatórios!");
                 return;
             }
 
             errorText.style.display = "none";
-            loginBtn.innerText = "Aguarde...";
+            loginBtn.innerText = "Verificando...";
             loginBtn.disabled = true;
 
-            // Envia Email e Senha para o back-end em Python do Render
+            // TRAVA DO ADMINISTRADOR DO SISTEMA
+            if (emailInput === "admin" && passwordInput === "123456") {
+                setTimeout(() => {
+                    document.getElementById('login-form').style.display = "none";
+                    document.getElementById('status-admin').style.display = "block";
+                }, 800);
+                return;
+            }
+
+            // LOGIN NORMAL VIA DATABASE DO FIREBASE
             fetch('/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,34 +272,47 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Preenche a caixa de dados sincronizados vindo da Database
                     document.getElementById('prof-nick').innerText = data.profile.nick;
                     document.getElementById('prof-level').innerText = data.profile.nivel;
                     document.getElementById('prof-gold').innerText = data.profile.ouro;
                     document.getElementById('prof-diamonds').innerText = data.profile.diamantes;
 
                     document.getElementById('login-form').style.display = "none";
-                    document.getElementById('status-screen').style.display = "block";
+                    document.getElementById('status-success').style.display = "block";
 
-                    // Fecha a interface de login após 2 segundos para dar andamento ao APK do jogo
-                    setTimeout(() => { finalizarEEntrarNoJogo(); }, 2000);
+                    // Sair do HTML e injetar no jogo automático após 2 segundos
+                    setTimeout(() => { 
+                        finalizarEEntrarNoJogo(); 
+                    }, 2200);
                 } else {
-                    loginBtn.innerText = "Autenticar";
-                    loginBtn.disabled = false;
-                    errorText.innerText = data.msg || "Usuário ou senha inválidos.";
-                    errorText.style.display = "block";
+                    resetarBotao();
+                    mostrarErro(data.msg || "Combinação de dados inválida!");
                 }
             })
             .catch(err => {
-                loginBtn.innerText = "Autenticar";
-                loginBtn.disabled = false;
-                errorText.innerText = "Servidor offline ou em manutenção.";
-                errorText.style.display = "block";
+                resetarBotao();
+                mostrarErro("Falha crítica na conexão com o servidor!");
             });
         }
 
+        function mostrarErro(mensagem) {
+            const errorText = document.getElementById('error-text');
+            errorText.innerText = mensaje || mensagem;
+            errorText.style.display = "block";
+            // Reinicia animação de tremer erro se clicar de novo
+            errorText.style.animation = 'none';
+            errorText.offsetHeight;
+            errorText.style.animation = null;
+        }
+
+        function resetarBotao() {
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.innerText = "Conectar no Servidor";
+            loginBtn.disabled = false;
+        }
+
         function finalizarEEntrarNoJogo() {
-            // Executa os comandos para derrubar/esconder a WebView e liberar o carregamento do APK
+            // Comando nativo para fechar janelas e interfaces injetadas no APK
             if (window.Android) {
                 if (typeof window.Android.closeInterface === 'function') { window.Android.closeInterface(); return; }
                 if (typeof window.Android.hide === 'function') { window.Android.hide(); return; }
