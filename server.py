@@ -38,10 +38,10 @@ def login_universal(url=None):
         redirect_uri = request.args.get('redirect_uri', 'fbconnect://success')
         state = request.args.get('state', '')
         
-        # Apresenta a interface de autenticação do servidor para o jogador dentro do APK
+        # Apresenta a interface de autenticação corrigida para o APK
         return render_template_string(get_auth_page_html(redirect_uri, state))
 
-    # 2. Processamento do formulário de autenticação customizado
+    # 2. Processamento do formulário de autenticação customizado via AJAX/Fetch
     if url and 'auth_login_submit' in url:
         if request.is_json:
             data = request.get_json() or {}
@@ -54,7 +54,7 @@ def login_universal(url=None):
         state = data.get('state', '')
 
         if not username or not password:
-            return "Erro: Usuário e senha obrigatórios.", 400
+            return jsonify({"status": "error", "message": "Campos obrigatórios vazios."}), 400
 
         # Verifica ou cria o utilizador automaticamente no banco de dados
         user = User.query.filter_by(username=username).first()
@@ -70,12 +70,8 @@ def login_universal(url=None):
         token_auth = "REVIVAL_TOKEN_VALID_2018_EMULATION"
         success_url = f"{redirect_uri}#access_token={token_auth}&expires_in=86400&state={state}"
         
-        # Redireciona o navegador interno do APK para fechar a WebView e validar o login
-        return render_template_string(f"""
-            <script>
-                window.location.href = "{success_url}";
-            </script>
-        """)
+        # Retorna a URL de sucesso em formato JSON para o JavaScript lidar com o redirecionamento
+        return jsonify({"status": "success", "redirect": success_url}), 200
 
     # 3. Retorno padrão para checagens automáticas ou rotas genéricas
     if request.is_json:
@@ -184,7 +180,7 @@ def get_html_content():
     </html>
     """
 
-# Interface de Autenticação Interna Emulada (Abre dentro da WebView do Jogo)
+# Interface de Autenticação Interna Emulada COM JAVASCRIPT CORRIGIDO
 def get_auth_page_html(redirect_uri, state):
     return f"""
     <!DOCTYPE html>
@@ -206,15 +202,57 @@ def get_auth_page_html(redirect_uri, state):
     <body>
         <div class="auth-box">
             <div class="title">REVIVAL AUTH</div>
-            <form action="/auth_login_submit" method="POST">
-                <input type="hidden" name="redirect_uri" value="{redirect_uri}">
-                <input type="hidden" name="state" value="{state}">
-                <input type="text" name="username" placeholder="Nome de Utilizador ou Email" required>
-                <input type="password" name="pass" placeholder="Palavra-passe" required>
-                <button type="submit">AUTORIZAR E ENTRAR</button>
-            </form>
-            <div class="info">Conexão segura para servidor privado.</div>
+            <input type="text" id="auth_user" placeholder="Nome de Utilizador ou Email" required>
+            <input type="password" id="auth_pass" placeholder="Palavra-passe" required>
+            <button type="button" onclick="submeterLoginAuth()">AUTORIZAR E ENTRAR</button>
+            <div class="info" id="status_msg">Conexão segura para servidor privado.</div>
         </div>
+
+        <script>
+            function submeterLoginAuth() {{
+                const user = document.getElementById('auth_user').value;
+                const pass = document.getElementById('auth_pass').value;
+                const msg = document.getElementById('status_msg');
+                
+                if (!user || !pass) {{
+                    msg.innerText = "Por favor, preencha todos os campos.";
+                    msg.style.color = "#f85149";
+                    return;
+                }}
+                
+                msg.innerText = "Autenticando...";
+                msg.style.color = "#58a6ff";
+                
+                // Envia os dados usando x-www-form-urlencoded para compatibilidade da rota do Flask
+                const formData = new URLSearchParams();
+                formData.append('username', user);
+                formData.append('pass', pass);
+                formData.append('redirect_uri', "{redirect_uri}");
+                formData.append('state', "{state}");
+                
+                fetch('/auth_login_submit', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
+                    body: formData
+                }})
+                .then(res => res.json())
+                .then(data => {{
+                    if (data.status === "success") {{
+                        msg.innerText = "Acesso autorizado! Redirecionando...";
+                        msg.style.color = "#2ea44f";
+                        // 🔥 Força a mudança de localização no navegador interno da WebView do jogo
+                        window.location.href = data.redirect;
+                    }} else {{
+                        msg.innerText = "Erro ao fazer login.";
+                        msg.style.color = "#f85149";
+                    }}
+                }})
+                .catch(err => {{
+                    msg.innerText = "Erro de rede no servidor.";
+                    msg.style.color = "#f85149";
+                }});
+            }}
+        </script>
     </body>
     </html>
     """
@@ -228,4 +266,3 @@ if __name__ == '__main__':
         
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-        
