@@ -5,189 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Revival - Authenticator</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: radial-gradient(circle, #1a0f12 0%, #0a0a0c 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: #fff;
-            overflow: hidden;
-            transition: background 0.3s ease;
-        }
-
-        .login-container {
-            background: #0f0f12;
-            border: 2px solid #e51c44;
-            border-radius: 20px;
-            padding: 35px 25px;
-            width: 88%;
-            max-width: 380px;
-            box-shadow: 0 0 25px rgba(229, 28, 68, 0.25);
-            text-align: center;
-            position: relative;
-            animation: painelEntrada 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
-        }
-
-        .logo {
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: 3px;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(229, 28, 68, 0.5);
-        }
-
-        .logo span {
-            color: #e51c44;
-        }
-
-        .input-group {
-            margin-bottom: 18px;
-            text-align: left;
-            position: relative;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 11px;
-            color: #e51c44;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 14px;
-            background: #16161c;
-            border: 1px solid #2d1b20;
-            border-radius: 10px;
-            color: #fff;
-            font-size: 14px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        .input-group input:focus {
-            border-color: #e51c44;
-            box-shadow: 0 0 10px rgba(229, 28, 68, 0.2);
-            background: #1c1c24;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(90deg, #e51c44 0%, #b81434 100%);
-            border: none;
-            border-radius: 10px;
-            color: #fff;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(229, 28, 68, 0.4);
-            transition: all 0.3s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(229, 28, 68, 0.6);
-        }
-
-        .btn:active {
-            transform: translateY(1px);
-        }
-
-        /* Telas de Status Dinâmicas */
-        .status-box {
-            display: none;
-        }
-
-        .status-icon {
-            font-size: 45px;
-            margin-bottom: 15px;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: radial-gradient(circle, #1a0f12 0%, #0a0a0c 100%); display: flex; justify-content: center; align-items: center; height: 100vh; color: #fff; overflow: hidden; }
+        .login-container { background: #0f0f12; border: 2px solid #e51c44; border-radius: 20px; padding: 35px 25px; width: 88%; max-width: 380px; box-shadow: 0 0 25px rgba(229, 28, 68, 0.25); text-align: center; position: relative; animation: painelEntrada 0.5s ease forwards; }
+        .logo { font-size: 26px; font-weight: 900; letter-spacing: 3px; margin-bottom: 30px; text-transform: uppercase; text-shadow: 0 0 10px rgba(229, 28, 68, 0.5); }
+        .logo span { color: #e51c44; }
+        .input-group { margin-bottom: 18px; text-align: left; }
+        .input-group label { display: block; font-size: 11px; color: #e51c44; margin-bottom: 6px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        .input-group input { width: 100%; padding: 14px; background: #16161c; border: 1px solid #2d1b20; border-radius: 10px; color: #fff; font-size: 14px; outline: none; transition: all 0.3s; }
+        .input-group input:focus { border-color: #e51c44; background: #1c1c24; }
+        .btn { width: 100%; padding: 15px; background: linear-gradient(90deg, #e51c44 0%, #b81434 100%); border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; box-shadow: 0 4px 15px rgba(229, 28, 68, 0.4); transition: all 0.3s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(229, 28, 68, 0.6); }
+        .btn:disabled { background: #333 !important; border-color: #444 !important; color: #888 !important; cursor: not-allowed !important; transform: none !important; box-shadow: none !important; }
+        .status-box { display: none; }
+        .status-icon { font-size: 45px; margin-bottom: 15px; }
         .status-success .status-icon { color: #00ff66; text-shadow: 0 0 15px rgba(0, 255, 102, 0.4); }
         .status-admin .status-icon { color: #00e1ff; text-shadow: 0 0 15px rgba(0, 225, 255, 0.4); }
-
-        .status-title {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .profile-data {
-            background: #16161c;
-            border: 1px solid #22222a;
-            border-radius: 12px;
-            padding: 18px;
-            text-align: left;
-            font-size: 14px;
-            margin-bottom: 25px;
-            line-height: 2;
-        }
-
-        .profile-data span {
-            color: #e51c44;
-            font-weight: bold;
-            float: right;
-        }
-
-        .profile-data .admin-label {
-            color: #00e1ff;
-        }
-
-        /* Notificações de Erro e Sucesso Flutuantes */
-        .alert-msg {
-            background: rgba(229, 28, 68, 0.15);
-            border: 1px solid #e51c44;
-            color: #ff4d6d;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 13px;
-            margin-top: 15px;
-            display: none;
-            font-weight: 500;
-            animation: balancoErro 0.4s ease;
-        }
-
-        /* Animações Keyframes */
-        @keyframes painelEntrada {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        @keyframes balancoErro {
-            0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-6px); }
-            40%, 80% { transform: translateX(6px); }
-        }
-
-        .loading-dots::after {
-            content: '.';
-            animation: pontinhos 1.5s steps(5, end) infinite;
-        }
-
-        @keyframes pontinhos {
-            0% { content: ''; }
-            33% { content: '.'; }
-            66% { content: '..'; }
-            100% { content: '...'; }
-        }
+        .status-title { font-size: 22px; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; }
+        .profile-data { background: #16161c; border: 1px solid #22222a; border-radius: 12px; padding: 18px; text-align: left; font-size: 14px; margin-bottom: 25px; line-height: 2; }
+        .profile-data span { color: #e51c44; font-weight: bold; float: right; }
+        .profile-data .admin-label { color: #00e1ff; }
+        .alert-msg { background: rgba(229, 28, 68, 0.15); border: 1px solid #e51c44; color: #ff4d6d; border-radius: 8px; padding: 12px; font-size: 13px; margin-top: 15px; display: none; font-weight: 500; animation: balancoErro 0.4s ease; }
+        @keyframes painelEntrada { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes balancoErro { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+        .loading-dots::after { content: '.'; animation: pontinhos 1.5s infinite; }
+        @keyframes pontinhos { 0% { content: ''; } 33% { content: '.'; } 66% { content: '..'; } 100% { content: '...'; } }
     </style>
 </head>
 <body>
@@ -198,7 +40,7 @@
             <div class="logo">Project <span>Revival</span></div>
             
             <div class="input-group">
-                <label>E-mail ou Usuário</label>
+                <label>Usuário ou E-mail</label>
                 <input type="text" id="email" placeholder="Digite seu login" autocomplete="off" required>
             </div>
 
@@ -231,7 +73,7 @@
             <div class="profile-data" style="border-color: #00e1ff;">
                 Cargo do Usuário: <span class="admin-label">Administrador</span><br>
                 Modo Servidor: <span class="admin-label">Desenvolvedor</span><br>
-                Status da Database: <span style="color:#00ff66; float:right;">Online</span><br>
+                Status da Database: <span style="color:#00ff66; float:right;">SQLite Online</span><br>
                 Acesso Bypass: <span class="admin-label">Liberado</span>
             </div>
             <button class="btn" style="background: linear-gradient(90deg, #00e1ff 0%, #008ca3 100%); box-shadow: 0 4px 15px rgba(0,225,255,0.3);" onclick="finalizarEEntrarNoJogo()">Entrar no Modo Dev</button>
@@ -240,7 +82,7 @@
     </div>
 
     <script>
-        function ejecutarLogin() {
+        function executarLogin() {
             const emailInput = document.getElementById('email').value.trim();
             const passwordInput = document.getElementById('password').value;
             const errorText = document.getElementById('error-text');
@@ -251,48 +93,48 @@
                 return;
             }
 
+            // Desativa o botão imediatamente para bloquear múltiplos cliques repetidos involuntários
             errorText.style.display = "none";
-            loginBtn.innerText = "Verificando...";
+            loginBtn.innerText = "Verificando Autenticação...";
             loginBtn.disabled = true;
 
-            // TRAVA DO ADMINISTRADOR DO SISTEMA
-            if (emailInput === "admin" && passwordInput === "123456") {
-                setTimeout(() => {
-                    document.getElementById('login-form').style.display = "none";
-                    document.getElementById('status-admin').style.display = "block";
-                }, 800);
-                return;
-            }
-
-            // LOGIN NORMAL VIA DATABASE DO FIREBASE
             fetch('/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: emailInput, password: passwordInput })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok && response.status !== 401 && response.status !== 403 && response.status !== 404) {
+                    throw new Error("Erro de resposta do servidor");
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
-                    document.getElementById('prof-nick').innerText = data.profile.nick;
-                    document.getElementById('prof-level').innerText = data.profile.nivel;
-                    document.getElementById('prof-gold').innerText = data.profile.ouro;
-                    document.getElementById('prof-diamonds').innerText = data.profile.diamantes;
+                    if (data.cargo === 'Admin') {
+                        // Se for administrador do sistema abre o painel dev dedicado
+                        document.getElementById('login-form').style.display = "none";
+                        document.getElementById('status-admin').style.display = "block";
+                    } else {
+                        // Jogador Comum passa pela tela de carregamento de dima e fecha
+                        document.getElementById('prof-nick').innerText = data.profile.nick;
+                        document.getElementById('prof-level').innerText = data.profile.nivel;
+                        document.getElementById('prof-gold').innerText = data.profile.ouro;
+                        document.getElementById('prof-diamonds').innerText = data.profile.diamantes;
 
-                    document.getElementById('login-form').style.display = "none";
-                    document.getElementById('status-success').style.display = "block";
+                        document.getElementById('login-form').style.display = "none";
+                        document.getElementById('status-success').style.display = "block";
 
-                    // Sair do HTML e entrar no jogo automático após 2.2 segundos
-                    setTimeout(() => { 
-                        finalizarEEntrarNoJogo(); 
-                    }, 2200);
+                        setTimeout(() => { finalizarEEntrarNoJogo(); }, 2200);
+                    }
                 } else {
                     resetarBotao();
-                    mostrarErro(data.msg || "Combinação de dados inválida!");
+                    mostrarErro(data.msg || "Dados de acesso incorretos!");
                 }
             })
             .catch(err => {
                 resetarBotao();
-                mostrarErro("Falha crítica na conexão com o servidor!");
+                mostrarErro("Falha crítica ao conectar com o banco Python!");
             });
         }
 
@@ -312,33 +154,16 @@
         }
 
         function finalizarEEntrarNoJogo() {
-            // 1. Gatilhos prioritários e nativos para fechar janelas injetadas dentro de APKs
+            // Comandos para fechar janelas internas injetadas de APK modificados
             if (window.Android) {
-                if (typeof window.Android.closeInterface === 'function') { 
-                    window.Android.closeInterface(); 
-                    return; 
-                }
-                if (typeof window.Android.hide === 'function') { 
-                    window.Android.hide(); 
-                    return; 
-                }
-                if (typeof window.Android.destroy === 'function') {
-                    window.Android.destroy();
-                    return;
-                }
+                if (typeof window.Android.closeInterface === 'function') { window.Android.closeInterface(); return; }
+                if (typeof window.Android.hide === 'function') { window.Android.hide(); return; }
+                if (typeof window.Android.destroy === 'function') { window.Android.destroy(); return; }
             }
-
-            // 2. Tenta fechar usando o método clássico do navegador interno
             if (typeof window.close === 'function') {
-                try {
-                    window.close();
-                } catch(e) {
-                    console.log("Erro ao fechar via window.close");
-                }
+                try { window.close(); } catch(e) {}
             }
-
-            // 3. Blindagem Visual: Limpa todo o código visual da tela e deixa invisível.
-            // Isso previne que o celular saia do jogo e vá para o navegador padrão.
+            // Blindagem total contra abertura de navegadores externos em background
             document.getElementById('main-container').style.display = "none";
             document.body.innerHTML = "";
             document.body.style.background = "transparent";
