@@ -20,6 +20,7 @@
             height: 100vh;
             color: #fff;
             overflow: hidden;
+            transition: background 0.3s ease;
         }
 
         .login-container {
@@ -191,7 +192,7 @@
 </head>
 <body>
 
-    <div class="login-container">
+    <div class="login-container" id="main-container">
         
         <div id="login-form">
             <div class="logo">Project <span>Revival</span></div>
@@ -220,7 +221,7 @@
                 Moedas de Ouro: <span id="prof-gold">-</span><br>
                 Diamantes Ativos: <span id="prof-diamonds">-</span>
             </div>
-            <p class="loading-dots" style="color: #00ff66; font-size: 13px; font-weight: bold; uppercase">Injetando dados e iniciando</p>
+            <p class="loading-dots" style="color: #00ff66; font-size: 13px; font-weight: bold; text-transform: uppercase;">Injetando dados e iniciando</p>
         </div>
 
         <div id="status-admin" class="status-box status-admin">
@@ -239,7 +240,7 @@
     </div>
 
     <script>
-        function executarLogin() {
+        function ejecutarLogin() {
             const emailInput = document.getElementById('email').value.trim();
             const passwordInput = document.getElementById('password').value;
             const errorText = document.getElementById('error-text');
@@ -280,7 +281,7 @@
                     document.getElementById('login-form').style.display = "none";
                     document.getElementById('status-success').style.display = "block";
 
-                    // Sair do HTML e injetar no jogo automático após 2 segundos
+                    // Sair do HTML e entrar no jogo automático após 2.2 segundos
                     setTimeout(() => { 
                         finalizarEEntrarNoJogo(); 
                     }, 2200);
@@ -297,9 +298,8 @@
 
         function mostrarErro(mensagem) {
             const errorText = document.getElementById('error-text');
-            errorText.innerText = mensaje || mensagem;
+            errorText.innerText = mensagem;
             errorText.style.display = "block";
-            // Reinicia animação de tremer erro se clicar de novo
             errorText.style.animation = 'none';
             errorText.offsetHeight;
             errorText.style.animation = null;
@@ -312,13 +312,36 @@
         }
 
         function finalizarEEntrarNoJogo() {
-            // Comando nativo para fechar janelas e interfaces injetadas no APK
+            // 1. Gatilhos prioritários e nativos para fechar janelas injetadas dentro de APKs
             if (window.Android) {
-                if (typeof window.Android.closeInterface === 'function') { window.Android.closeInterface(); return; }
-                if (typeof window.Android.hide === 'function') { window.Android.hide(); return; }
+                if (typeof window.Android.closeInterface === 'function') { 
+                    window.Android.closeInterface(); 
+                    return; 
+                }
+                if (typeof window.Android.hide === 'function') { 
+                    window.Android.hide(); 
+                    return; 
+                }
+                if (typeof window.Android.destroy === 'function') {
+                    window.Android.destroy();
+                    return;
+                }
             }
-            if (typeof window.close === 'function') { window.close(); }
-            window.location.href = "about:blank";
+
+            // 2. Tenta fechar usando o método clássico do navegador interno
+            if (typeof window.close === 'function') {
+                try {
+                    window.close();
+                } catch(e) {
+                    console.log("Erro ao fechar via window.close");
+                }
+            }
+
+            // 3. Blindagem Visual: Limpa todo o código visual da tela e deixa invisível.
+            // Isso previne que o celular saia do jogo e vá para o navegador padrão.
+            document.getElementById('main-container').style.display = "none";
+            document.body.innerHTML = "";
+            document.body.style.background = "transparent";
         }
     </script>
 </body>
