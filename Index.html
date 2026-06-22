@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Revival | Player Authentication</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        body {
+            background: radial-gradient(circle at 50% 50%, #1a080b 0%, #08080b 100%);
+            color: #eeeeee;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .auth-container {
+            background: rgba(14, 14, 18, 0.95);
+            backdrop-filter: blur(15px);
+            padding: 40px 35px;
+            border-radius: 20px;
+            border: 2px solid rgba(255, 36, 66, 0.2);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 36, 66, 0.05);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .auth-container h2 {
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #ffffff 40%, #ff2e4c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .auth-container p.subtitle {
+            color: #7c7c8c;
+            font-size: 0.85rem;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-group { margin-bottom: 18px; text-align: left; }
+        .input-group label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #888899; margin-left: 5px; display: block; margin-bottom: 5px; }
+
+        input {
+            width: 100%; padding: 14px 16px; background: #13131a; border: 1px solid #232330; border-radius: 10px; color: #ffffff; font-size: 0.95rem; transition: all 0.25s ease;
+        }
+        input:focus { outline: none; border-color: #ff2e4c; box-shadow: 0 0 12px rgba(255, 36, 66, 0.25); }
+
+        .btn-action {
+            width: 100%; padding: 15px; margin-top: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+            background: linear-gradient(135deg, #ff2e4c 0%, #bd102c 100%); color: #ffffff; box-shadow: 0 6px 20px rgba(255, 46, 76, 0.35); transition: all 0.2s ease;
+        }
+        .btn-action:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+        .switch-form { margin-top: 20px; font-size: 0.85rem; color: #7c7c8c; }
+        .switch-form a { color: #ff2e4c; text-decoration: none; font-weight: bold; cursor: pointer; }
+        .switch-form a:hover { text-decoration: underline; }
+
+        .spinner { display: none; width: 30px; height: 30px; border: 3px solid transparent; border-top-color: #ff2e4c; border-radius: 50%; animation: spin 1s linear infinite; margin: 15px auto 0; }
+        #alert-msg { margin-top: 15px; font-size: 0.9rem; font-weight: 600; color: #ff4a6b; }
+
+        /* Estado Logado */
+        .logged-box { display: none; }
+        .welcome-title { color: #00ff87; font-size: 1.5rem; margin-bottom: 15px; text-transform: uppercase; }
+        .player-info { background: #13131a; padding: 15px; border-radius: 10px; text-align: left; margin-bottom: 20px; border: 1px solid #232330; }
+        .player-info p { margin-bottom: 8px; font-size: 0.95rem; }
+        .player-info strong { color: #ff2e4c; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <div id="auth-block">
+            <h2 id="form-title">Login</h2>
+            <p class="subtitle" id="form-subtitle">Entre na sua conta de jogador</p>
+
+            <div class="input-group" id="nick-group" style="display: none;">
+                <label for="p-nick">Nickname do Jogo</label>
+                <input type="text" id="p-nick" placeholder="Ex: NOBRU_XT">
+            </div>
+
+            <div class="input-group">
+                <label for="p-email">E-mail</label>
+                <input type="email" id="p-email" placeholder="seuemail@gmail.com">
+            </div>
+
+            <div class="input-group">
+                <label for="p-password">Senha</label>
+                <input type="password" id="p-password" placeholder="••••••••">
+            </div>
+
+            <button class="btn-action" id="btn-submit" onclick="handleAuth()">Entrar no Jogo</button>
+
+            <div class="switch-form" id="toggle-text">
+                Novo por aqui? <a onclick="toggleForm(true)">Criar uma Conta</a>
+            </div>
+        </div>
+
+        <div id="logged-block" class="logged-box">
+            <h2 class="welcome-title">● Conectado</h2>
+            <p class="subtitle">Perfil sincronizado com o servidor</p>
+            
+            <div class="player-info">
+                <p>Jogador: <strong id="info-nick">...</strong></p>
+                <p>Nível: <span id="info-level" style="color: #fff;">1</span></p>
+                <p>Ouro: <span id="info-gold" style="color: #ffd700;">0</span></p>
+                <p>Diamantes: <span id="info-diamonds" style="color: #00e5ff;">0</span></p>
+            </div>
+
+            <button class="btn-action" style="background: #333; box-shadow: none;" onclick="logoutPlayer()">Desconectar</button>
+        </div>
+
+        <div class="spinner" id="loading-spinner"></div>
+        <p id="alert-msg"></p>
+    </div>
+
+<script>
+    // Mesma configuração do seu Firebase original
+    const firebaseConfig = {
+        apiKey: "AIzaSyDPpFWpIsMasbuTLSSePUI3Odmrl7vh978",
+        authDomain: "project-revival-29e2b.firebaseapp.com",
+        databaseURL: "https://project-revival-29e2b-default-rtdb.firebaseio.com",
+        projectId: "project-revival-29e2b",
+        storageBucket: "project-revival-29e2b.firebasestorage.app",
+        messagingSenderId: "203714336706",
+        appId: "1:203714336706:web:54386a637b4506d483685b",
+        measurementId: "G-RBJPGXEMZD"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    let isRegisterMode = false;
+
+    // Alternar entre tela de Login e Registro
+    function toggleForm(register) {
+        isRegisterMode = register;
+        document.getElementById('alert-msg').innerText = "";
+        
+        if (register) {
+            document.getElementById('form-title').innerText = "Cadastro";
+            document.getElementById('form-subtitle').innerText = "Crie seu perfil do Project Revival";
+            document.getElementById('nick-group').style.display = 'block';
+            document.getElementById('btn-submit').innerText = "Registrar Conta";
+            document.getElementById('toggle-text').innerHTML = 'Já tem uma conta? <a onclick="toggleForm(false)">Fazer Login</a>';
+        } else {
+            document.getElementById('form-title').innerText = "Login";
+            document.getElementById('form-subtitle').innerText = "Entre na sua conta de jogador";
+            document.getElementById('nick-group').style.display = 'none';
+            document.getElementById('btn-submit').innerText = "Entrar no Jogo";
+            document.getElementById('toggle-text').innerHTML = 'Novo por aqui? <a onclick="toggleForm(true)">Criar uma Conta</a>';
+        }
+    }
+
+    // Processar Autenticação (Login ou Cadastro)
+    function handleAuth() {
+        const email = document.getElementById('p-email').value.trim();
+        const pass = document.getElementById('p-password').value;
+        const msg = document.getElementById('alert-msg');
+        const spinner = document.getElementById('loading-spinner');
+
+        msg.innerText = "";
+        if(!email || !pass) { msg.innerText = "Preencha todos os campos."; return; }
+
+        spinner.style.display = 'block';
+
+        if (isRegisterMode) {
+            // REGISTRO DE NOVO JOGADOR
+            const nick = document.getElementById('p-nick').value.trim();
+            if(!nick) { msg.innerText = "Escolha um Nickname."; spinner.style.display = 'none'; return; }
+
+            auth.createUserWithEmailAndPassword(email, pass)
+                .then((userCredential) => {
+                    const uid = userCredential.user.uid;
+                    // Cria a estrutura padrão da conta no Realtime Database
+                    db.ref('users/' + uid).set({
+                        nick: nick,
+                        nivel: 1,
+                        moedas: 500, // Começa com um ouro inicial
+                        diamantes: 0,
+                        status: "online",
+                        banido: false,
+                        salas_personalizadas: 1
+                    }).then(() => {
+                        spinner.style.display = 'none';
+                        loadPlayerProfile(uid);
+                    });
+                })
+                .catch(err => { spinner.style.display = 'none'; msg.innerText = "Erro ao cadastrar: " + err.message; });
+        } else {
+            // LOGIN DE JOGADOR EXISTENTE
+            auth.signInWithEmailAndPassword(email, pass)
+                .then((userCredential) => {
+                    const uid = userCredential.user.uid;
+                    
+                    // Verifica primeiro se o player foi banido pelo painel ADM
+                    db.ref('users/' + uid).once('value').then((snapshot) => {
+                        const playerData = snapshot.val();
+                        if (playerData && playerData.banido) {
+                            auth.signOut();
+                            spinner.style.display = 'none';
+                            msg.innerText = "⚠️ Esta conta está BANIDA do servidor!";
+                        } else {
+                            // Se não estiver banido, define como online e abre o painel
+                            db.ref('users/' + uid).update({ status: "online" }).then(() => {
+                                spinner.style.display = 'none';
+                                loadPlayerProfile(uid);
+                            });
+                        }
+                    });
+                })
+                .catch(err => { spinner.style.display = 'none'; msg.innerText = "Acesso inválido: " + err.message; });
+        }
+    }
+
+    // Carregar dados e exibir tela de logado
+    function loadPlayerProfile(uid) {
+        db.ref('users/' + uid).on('value', (snapshot) => {
+            const player = snapshot.val();
+            if(player) {
+                document.getElementById('auth-block').style.display = 'none';
+                document.getElementById('logged-block').style.display = 'block';
+
+                document.getElementById('info-nick').innerText = player.nick || "Recruta";
+                document.getElementById('info-level').innerText = player.nivel || 1;
+                document.getElementById('info-gold').innerText = (player.moedas || 0).toLocaleString();
+                document.getElementById('info-diamonds').innerText = player.diamantes || 0;
+            }
+        });
+    }
+
+    // Desconectar Conta (Bota o player em offline no Painel ADM)
+    function logoutPlayer() {
+        const user = auth.currentUser;
+        if (user) {
+            db.ref('users/' + user.uid).update({ status: "offline" }).then(() => {
+                auth.signOut().then(() => {
+                    window.location.reload();
+                });
+            });
+        }
+    }
+</script>
+</body>
+              </html>
