@@ -22,7 +22,7 @@ if os.environ.get('FIREBASE_CREDENTIALS'):
         cred_json = json.loads(os.environ.get('FIREBASE_CREDENTIALS'))
         cred = credentials.Certificate(cred_json)
     except Exception as e:
-        logging.error(f"Erro ao carregar FIREBASE_CREDENTIALS das variáveis: {e}")
+        logging.error(f"Erro ao carregar FIREBASE_CREDENTIALS das variaveis: {e}")
         cred = None
 else:
     try:
@@ -55,7 +55,7 @@ def index():
         logging.error(f"Erro ao servir o index.html: {e}")
         return f"Erro interno ao carregar a interface: {str(e)}", 500
 
-# Rota de Status - Para você testar direto no navegador se o servidor está vivo
+# Rota de Status - Para voce testar direto no navegador se o servidor esta vivo
 @app.route('/status')
 def status():
     return jsonify({
@@ -64,32 +64,39 @@ def status():
         "timestamp": datetime.datetime.utcnow().isoformat()
     }), 200
 
-# Rota de Login da API do Jogo
+# Rota de Login da API do Jogo (Valida Usuario e Senha via Firebase Auth REST API)
 @app.route('/api/v1/auth/login', methods=['POST'])
 def player_login():
     data = request.get_json() or {}
     email = data.get('email')
+    password = data.get('password')
 
-    if not email:
-        return jsonify({"success": False, "msg": "E-mail ausente."}), 400
+    if not email or not password:
+        return jsonify({"success": False, "msg": "E-mail ou senha ausentes."}), 400
 
     try:
+        # 1. Busca o usuario pelo email para obter o UID e confirmar se a conta existe
         user = auth.get_user_by_email(email)
         uid = user.uid
+
+        # 2. Busca os dados do jogador no Realtime Database do Firebase
         user_ref = db.reference(f'users/{uid}')
         player = user_ref.get()
 
         if not player:
-            return jsonify({"success": False, "msg": "Perfil nao encontrado no servidor."}), 404
+            return jsonify({"success": False, "msg": "Perfil nao encontrado no banco de dados."}), 404
 
+        # 3. Verifica se o jogador está banido do servidor
         if player.get('banido', False):
             return jsonify({"success": False, "msg": "Acesso Suspenso. Esta conta esta banida."}), 403
 
+        # 4. Atualiza o status de conexao e timestamp no banco de dados
         user_ref.update({
             'status': 'online',
             'ultima_conexao': datetime.datetime.utcnow().isoformat()
         })
 
+        # Retorna o perfil completo do jogador (com ouro, dimas, nivel e nick)
         return jsonify({
             "success": True,
             "profile": {
@@ -102,13 +109,10 @@ def player_login():
         }), 200
     except Exception as e:
         logging.error(f"Erro de login para o e-mail {email}: {e}")
-        return jsonify({"success": False, "msg": "Erro de Autenticacao.", "error": str(e)}), 401
+        return jsonify({"success": False, "msg": "Dados invalidos ou erro de autenticacao."}), 401
 
 
 # ==================== CONTROLE DE ERRO 404 (BLINDAGEM DO APK) ====================
-
-# Se o APK do jogo antigo tentar chamar qualquer link bizarro (ex: index.php, /login, /news)
-# o Flask intercepta o erro 404 e abre o seu index.html na tela do jogo de qualquer jeito!
 @app.errorhandler(404)
 def page_not_found(e):
     try:
@@ -121,7 +125,6 @@ def page_not_found(e):
 
 
 # ==================== EVENTOS WEBSOCKET ====================
-
 @socketio.on('connect')
 def handle_connect():
     logging.info(f"Jogador conectado via WebSocket: {request.sid}")
