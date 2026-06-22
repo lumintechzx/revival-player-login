@@ -21,30 +21,71 @@ class User(db.Model):
     diamonds = db.Column(db.Integer, default=1000)
     gold = db.Column(db.Integer, default=5000)
 
-# Rota Principal - Carrega o seu Painel Web HTML automaticamente
+# Rota Principal - Carrega o Painel Web HTML automaticamente
 @app.route('/')
 def index():
     return render_template_string(get_html_content())
 
-# 🔥 ROTA CORINGA UNIVERSAL: Captura QUALQUER link que o APK tentar acessar
+# 🔥 ROTA UNIVERSAL COM INTERCEPTADOR DE FLUXO OAUTH/SDK
 @app.route('/<path:url>', methods=['POST', 'GET'])
 @app.route('/api/login', methods=['POST', 'GET'])
 @app.route('/login.php', methods=['POST', 'GET'])
 def login_universal(url=None):
-    # Loga no painel do Render qual link o APK tentou acessar para você monitorar
-    print(f"[REQUISIÇÃO DETECTADA]: O APK tentou acessar a rota: /{url}")
+    print(f"[REQUISIÇÃO DETECTADA]: Rota acessada -> /{url}")
 
-    # Coleta os dados independente se vieram por JSON, Formulário ou URL
+    # 1. Se o APK estiver a chamar o diálogo de autenticação (OAuth)
+    if url and 'dialog/oauth' in url:
+        redirect_uri = request.args.get('redirect_uri', 'fbconnect://success')
+        state = request.args.get('state', '')
+        
+        # Apresenta a interface de autenticação do servidor para o jogador dentro do APK
+        return render_template_string(get_auth_page_html(redirect_uri, state))
+
+    # 2. Processamento do formulário de autenticação customizado
+    if url and 'auth_login_submit' in url:
+        if request.is_json:
+            data = request.get_json() or {}
+        else:
+            data = request.form if request.form else request.args
+
+        username = data.get('username') or data.get('user')
+        password = data.get('pass') or data.get('password')
+        redirect_uri = data.get('redirect_uri', 'fbconnect://success')
+        state = data.get('state', '')
+
+        if not username or not password:
+            return "Erro: Usuário e senha obrigatórios.", 400
+
+        # Verifica ou cria o utilizador automaticamente no banco de dados
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            try:
+                user = User(username=username, password=password)
+                db.session.add(user)
+                db.session.commit()
+            except Exception as e:
+                print(f"Erro ao criar conta: {e}")
+
+        # Gera o formato de retorno com o token que o cliente do jogo necessita
+        token_auth = "REVIVAL_TOKEN_VALID_2018_EMULATION"
+        success_url = f"{redirect_uri}#access_token={token_auth}&expires_in=86400&state={state}"
+        
+        # Redireciona o navegador interno do APK para fechar a WebView e validar o login
+        return render_template_string(f"""
+            <script>
+                window.location.href = "{success_url}";
+            </script>
+        """)
+
+    # 3. Retorno padrão para checagens automáticas ou rotas genéricas
     if request.is_json:
         data = request.get_json() or {}
     else:
         data = request.form if request.form else request.args
 
-    # Pega qualquer variação de nome que o APK antigo usar para Usuário e Senha
-    username = data.get('username') or data.get('user') or data.get('account') or data.get('username_input')
-    password = data.get('password') or data.get('pass') or data.get('pwd') or data.get('password_input')
-    
-    # Se o APK chamou uma rota aleatória que não enviou dados de login (como checagem de versão)
+    username = data.get('username') or data.get('user') or data.get('account')
+    password = data.get('password') or data.get('pass')
+
     if not username or not password:
         return jsonify({
             "status": "success", 
@@ -53,22 +94,12 @@ def login_universal(url=None):
         }), 200
         
     user = User.query.filter_by(username=username).first()
-    
     if user and user.password == password:
-        return jsonify({
-            "status": "success",
-            "message": "Login efetuado com sucesso!",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "diamonds": user.diamonds,
-                "gold": user.gold
-            }
-        }), 200
-        
-    return jsonify({"status": "fail", "message": "Usuário ou senha incorretos."}), 401
+        return jsonify({"status": "success", "error": 0, "username": user.username}), 200
 
-# Rota de Registo de Contas (Via Painel ou APK)
+    return jsonify({"status": "fail", "error": 1, "message": "Dados incorretos."}), 401
+
+# Manual Register Rota (Caso queiras usar pelo Painel)
 @app.route('/api/register', methods=['POST', 'GET'])
 @app.route('/register.php', methods=['POST', 'GET'])
 def register():
@@ -93,7 +124,7 @@ def register():
     
     return jsonify({"status": "success", "message": "Conta criada com sucesso!"}), 201
 
-# Interface HTML integrada diretamente no Backend
+# Interface de Login do Painel Web HTML
 def get_html_content():
     return """
     <!DOCTYPE html>
@@ -136,7 +167,7 @@ def get_html_content():
                 .then(res => res.json())
                 .then(data => {
                     if(data.status === "success") {
-                        respDiv.innerText = `Sucesso! Dimas: ${data.user.diamonds} | Ouro: ${data.user.gold}`;
+                        respDiv.innerText = `Sucesso! Dimas: ${data.diamonds} | Ouro: ${data.gold}`;
                         respDiv.style.color = "#2ea44f";
                     } else {
                         respDiv.innerText = data.message;
@@ -149,6 +180,41 @@ def get_html_content():
                 });
             }
         </script>
+    </body>
+    </html>
+    """
+
+# Interface de Autenticação Interna Emulada (Abre dentro da WebView do Jogo)
+def get_auth_page_html(redirect_uri, state):
+    return f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Revival Network - Autenticação</title>
+        <style>
+            body {{ background-color: #0d1117; color: #c9d1d9; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+            .auth-box {{ background: #161b22; padding: 25px; border-radius: 8px; border: 1px solid #30363d; width: 100%; max-width: 300px; text-align: center; }}
+            .title {{ color: #58a6ff; font-size: 22px; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; }}
+            input {{ width: 90%; padding: 10px; margin: 8px 0; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #fff; }}
+            button {{ width: 97%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }}
+            button:hover {{ background: #2ea44f; }}
+            .info {{ margin-top: 15px; font-size: 11px; color: #8b949e; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-box">
+            <div class="title">REVIVAL AUTH</div>
+            <form action="/auth_login_submit" method="POST">
+                <input type="hidden" name="redirect_uri" value="{redirect_uri}">
+                <input type="hidden" name="state" value="{state}">
+                <input type="text" name="username" placeholder="Nome de Utilizador ou Email" required>
+                <input type="password" name="pass" placeholder="Palavra-passe" required>
+                <button type="submit">AUTORIZAR E ENTRAR</button>
+            </form>
+            <div class="info">Conexão segura para servidor privado.</div>
+        </div>
     </body>
     </html>
     """
