@@ -68,6 +68,11 @@ def get_request_data():
         return request.form
 
 # --- ROTAS DE INTERCEPTAÇÃO E LOGIN/REGISTRO ---
+@app.route("/", methods=["GET"])
+def index():
+    # Redireciona para a tela de login se acessar a raiz do site
+    return render_template_string(get_auth_html("fbconnect://success", ""))
+
 @app.route("/<path:url>", methods=["POST", "GET"])
 def universal_handler(url):
     logging.info(f"Rota: {url} | Método: {request.method}")
@@ -267,4 +272,4 @@ def get_auth_html(redir, state):
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
-                
+    
